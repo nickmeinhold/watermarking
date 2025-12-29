@@ -1,0 +1,28 @@
+name: watermarking_core
+description: Shared models, services, and Redux logic for watermarking apps
+version: 0.0.1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  # Firebase
+  firebase_core: ^3.8.1
+  firebase_auth: ^5.3.4
+  cloud_firestore: ^5.6.0
+  firebase_storage: ^12.3.7
+
+  # Auth
+  google_sign_in: ^6.2.2
+
+  # State management
+  redux: ^5.0.0
+  redux_epics: ^0.15.0
+
+  # Utilities
+  rxdart: ^0.28.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
