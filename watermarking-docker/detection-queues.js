@@ -10,7 +10,7 @@ var fs = require('fs');
 var { promisify } = require('util');
 var execFileAsync = promisify(execFile);
 
-var tools = require('./tools');
+
 var storageHelper = require('./storage-helper');
 
 // Promisify storage helper
@@ -36,7 +36,7 @@ module.exports = {
    * 3. Run detect-wm binary
    * 4. Update Firestore with results
    */
-  processDetectionTask: async function(data) {
+  processDetectionTask: async function (data) {
     console.log(`Processing detection task for user: ${data.userId}`);
 
     var originalPath = '/tmp/' + data.userId + '/original';
