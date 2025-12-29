@@ -65,6 +65,10 @@ function runMarkImageWithProgress(filePath, imageName, message, strength, marked
             progressText = `Embedding watermark (${current}/${total})...`;
           } else if (step === 'saving') {
             progressText = 'Compressing image...';
+          } else if (step === 'dft') {
+            progressText = (currentMarkingStatus || 'Processing') + ' - DFT...';
+          } else if (step === 'idft') {
+            progressText = (currentMarkingStatus || 'Processing') + ' - IDFT...';
           }
 
           if (progressText) {

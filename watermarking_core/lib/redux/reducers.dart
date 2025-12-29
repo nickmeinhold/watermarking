@@ -11,7 +11,8 @@ import 'package:watermarking_core/models/user_model.dart';
 import 'package:watermarking_core/redux/actions.dart';
 
 /// Reducer
-final Reducer<AppState> appReducer = combineReducers<AppState>(<Reducer<AppState>>[
+final Reducer<AppState> appReducer =
+    combineReducers<AppState>(<Reducer<AppState>>[
   TypedReducer<AppState, ActionSetAuthState>(_setAuthState),
   TypedReducer<AppState, ActionSetProfilePicUrl>(_setProfilePicUrl),
   TypedReducer<AppState, ActionSetOriginalImages>(_setOriginalImages),
@@ -29,7 +30,8 @@ final Reducer<AppState> appReducer = combineReducers<AppState>(<Reducer<AppState
   TypedReducer<AppState, ActionRemoveProblem>(_removeProblem),
 ]);
 
-AppState _setAuthState(AppState state, ActionSetAuthState action) =>
+AppState _setAuthState(
+        AppState state, ActionSetAuthState action) =>
     state.copyWith(
         user: UserModel(
             id: action.userId, photoUrl: action.photoUrl, waiting: false));
@@ -44,8 +46,7 @@ AppState _setOriginalImages(AppState state, ActionSetOriginalImages action) {
       originals: OriginalImagesViewModel(images: action.images));
 }
 
-AppState _updateMarkedImages(
-    AppState state, ActionUpdateMarkedImages action) {
+AppState _updateMarkedImages(AppState state, ActionUpdateMarkedImages action) {
   // Update each original image with its marked images
   final updatedImages = state.originals.images.map((original) {
     final markedData = action.markedImagesByOriginal[original.id] ?? [];
@@ -57,6 +58,7 @@ AppState _updateMarkedImages(
               strength: data['strength'] as int?,
               path: data['path'] as String?,
               servingUrl: data['servingUrl'] as String?,
+              progress: data['progress'] as String?,
             ))
         .toList();
     return original.copyWith(markedImages: markedImages);
@@ -75,6 +77,7 @@ AppState _updateMarkedImages(
               strength: data['strength'] as int?,
               path: data['path'] as String?,
               servingUrl: data['servingUrl'] as String?,
+              progress: data['progress'] as String?,
             ))
         .toList();
     updatedSelectedImage = selectedImage.copyWith(markedImages: markedImages);
@@ -145,8 +148,8 @@ AppState _setUploadStartTime(AppState state, ActionStartUpload action) {
 }
 
 AppState _setUploadProgress(AppState state, ActionSetUploadProgress action) {
-  final List<DetectionItem> nextItems = state.detections.items
-      .map<DetectionItem>((DetectionItem item) {
+  final List<DetectionItem> nextItems =
+      state.detections.items.map<DetectionItem>((DetectionItem item) {
     if (item.id != action.id) return item;
     final totalBytes = item.extractedRef?.bytes ?? 1;
     return item.copyWith(

@@ -8,6 +8,7 @@ class MarkedImageReference {
     this.strength,
     this.path,
     this.servingUrl,
+    this.progress,
   });
 
   final String? id;
@@ -16,6 +17,7 @@ class MarkedImageReference {
   final int? strength;
   final String? path;
   final String? servingUrl;
+  final String? progress;
 
   /// Whether the marked image is still processing (no servingUrl yet)
   bool get isProcessing => servingUrl == null || servingUrl!.isEmpty;
@@ -27,6 +29,7 @@ class MarkedImageReference {
     int? strength,
     String? path,
     String? servingUrl,
+    String? progress,
   }) {
     return MarkedImageReference(
       id: id ?? this.id,
@@ -35,6 +38,7 @@ class MarkedImageReference {
       strength: strength ?? this.strength,
       path: path ?? this.path,
       servingUrl: servingUrl ?? this.servingUrl,
+      progress: progress ?? this.progress,
     );
   }
 
@@ -51,11 +55,12 @@ class MarkedImageReference {
           name == other.name &&
           strength == other.strength &&
           path == other.path &&
-          servingUrl == other.servingUrl;
+          servingUrl == other.servingUrl &&
+          progress == other.progress;
 
   @override
   String toString() {
-    return 'MarkedImageReference{id: $id, message: $message, strength: $strength, isProcessing: $isProcessing}';
+    return 'MarkedImageReference{id: $id, message: $message, strength: $strength, isProcessing: $isProcessing, progress: $progress}';
   }
 
   Map<String, dynamic> toJson() => <String, dynamic>{
@@ -65,5 +70,6 @@ class MarkedImageReference {
         'strength': strength,
         'path': path,
         'servingUrl': servingUrl,
+        'progress': progress,
       };
 }

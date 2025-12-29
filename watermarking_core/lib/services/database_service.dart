@@ -19,8 +19,7 @@ class DatabaseService {
 
   FirebaseFirestore get _db => FirebaseFirestore.instance;
 
-  String getDetectionItemId() =>
-      _db.collection('detectionItems').doc().id;
+  String getDetectionItemId() => _db.collection('detectionItems').doc().id;
 
   Stream<dynamic> connectToOriginals() {
     // Listen to original images for this user
@@ -54,19 +53,19 @@ class DatabaseService {
             .where('originalImageId', isEqualTo: doc.id)
             .get();
 
-        final List<MarkedImageReference> markedImages = markedSnapshot.docs
-            .map((markedDoc) {
-              final markedData = markedDoc.data();
-              return MarkedImageReference(
-                id: markedDoc.id,
-                message: markedData['message'] as String?,
-                name: markedData['name'] as String?,
-                strength: markedData['strength'] as int?,
-                path: markedData['path'] as String?,
-                servingUrl: markedData['servingUrl'] as String?,
-              );
-            })
-            .toList();
+        final List<MarkedImageReference> markedImages =
+            markedSnapshot.docs.map((markedDoc) {
+          final markedData = markedDoc.data();
+          return MarkedImageReference(
+            id: markedDoc.id,
+            message: markedData['message'] as String?,
+            name: markedData['name'] as String?,
+            strength: markedData['strength'] as int?,
+            path: markedData['path'] as String?,
+            servingUrl: markedData['servingUrl'] as String?,
+            progress: markedData['progress'] as String?,
+          );
+        }).toList();
 
         imagesList.add(OriginalImageReference(
           id: doc.id,
@@ -107,6 +106,7 @@ class DatabaseService {
           'strength': data['strength'],
           'path': data['path'],
           'servingUrl': data['servingUrl'],
+          'progress': data['progress'],
         });
       }
 
@@ -193,6 +193,7 @@ class DatabaseService {
       'message': message,
       'name': imageName,
       'strength': strength,
+      'progress': 'Queued',
       'createdAt': FieldValue.serverTimestamp(),
     });
 

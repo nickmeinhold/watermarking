@@ -110,7 +110,8 @@ class MarkedImagesPage extends StatelessWidget {
                                       ? const Center(
                                           child: Text(
                                             'Click "Apply Watermark" to create a watermarked version.',
-                                            style: TextStyle(color: Colors.grey),
+                                            style:
+                                                TextStyle(color: Colors.grey),
                                           ),
                                         )
                                       : GridView.builder(
@@ -121,12 +122,14 @@ class MarkedImagesPage extends StatelessWidget {
                                             mainAxisSpacing: 16,
                                             childAspectRatio: 0.8,
                                           ),
-                                          itemCount: viewModel
-                                              .selectedImage!.markedImages.length,
+                                          itemCount: viewModel.selectedImage!
+                                              .markedImages.length,
                                           itemBuilder: (context, index) {
-                                            final marked = viewModel.selectedImage!
+                                            final marked = viewModel
+                                                .selectedImage!
                                                 .markedImages[index];
-                                            return _MarkedImageCard(marked: marked);
+                                            return _MarkedImageCard(
+                                                marked: marked);
                                           },
                                         ),
                                 ),
@@ -242,15 +245,16 @@ class _MarkedImageCard extends StatelessWidget {
         children: [
           Expanded(
             child: isProcessing
-                ? const Center(
+                ? Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         CircularProgressIndicator(),
                         SizedBox(height: 8),
                         Text(
-                          'Processing...',
-                          style: TextStyle(color: Colors.grey),
+                          marked.progress ?? 'Queued...',
+                          style: const TextStyle(color: Colors.grey),
+                          textAlign: TextAlign.center,
                         ),
                       ],
                     ),

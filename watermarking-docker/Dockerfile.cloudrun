@@ -72,7 +72,7 @@ COPY firebase-admin-singleton.js /app/firebase-admin-singleton.js
 COPY storage-helper.js /app/storage-helper.js
 
 # Copy Firebase credentials
-COPY firebase-service-account.json /app/keys/firebase-service-account.json
+COPY keys/firebase-service-account.json /app/keys/firebase-service-account.json
 
 # Cloud Run expects services to listen on PORT environment variable
 ENV PORT=8080
