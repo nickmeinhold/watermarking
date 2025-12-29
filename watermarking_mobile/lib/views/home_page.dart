@@ -86,7 +86,8 @@ class DetectionSteps extends StatelessWidget {
     return Column(
       children: <Widget>[
         Container(
-          padding: const EdgeInsets.only(left: 10, right: 10, top: 10, bottom: 5),
+          padding:
+              const EdgeInsets.only(left: 10, right: 10, top: 10, bottom: 5),
           height: 200,
           child: Theme(
             data: ThemeData(
@@ -119,15 +120,39 @@ class DetectionSteps extends StatelessWidget {
                   title: const Text('Detect'),
                   content: Text(firstItem.progress ?? ''),
                   isActive: currentStep == 2,
-                  state: (currentStep > 2)
-                      ? StepState.complete
-                      : StepState.indexed,
+                  state: firstItem.error != null
+                      ? StepState.error
+                      : (currentStep > 2)
+                          ? StepState.complete
+                          : StepState.indexed,
                 ),
               ],
               onStepTapped: (int step) {},
             ),
           ),
         ),
+        if (firstItem.error != null)
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.red.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.red.shade200),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.error_outline, color: Colors.red.shade700),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    firstItem.error!,
+                    style: TextStyle(color: Colors.red.shade700),
+                  ),
+                ),
+              ],
+            ),
+          ),
       ],
     );
   }

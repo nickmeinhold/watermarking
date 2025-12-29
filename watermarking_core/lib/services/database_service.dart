@@ -274,6 +274,7 @@ class DatabaseService {
         id: data?['itemId'] as String? ?? '',
         progress: data?['progress'] as String? ?? '',
         result: resultsMap?['message'] as String?,
+        error: data?['error'] as String?,
       );
     });
   }

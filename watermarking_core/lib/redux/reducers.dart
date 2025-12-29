@@ -184,7 +184,10 @@ AppState _setDetectingProgress(
     AppState state, ActionSetDetectingProgress action) {
   final List<DetectionItem> nextItems = state.detections.items
       .map<DetectionItem>((DetectionItem item) => (item.id == action.id)
-          ? item.copyWith(progress: action.progress, result: action.result)
+          ? item.copyWith(
+              progress: action.progress,
+              result: action.result,
+              error: action.error)
           : item)
       .toList();
 
