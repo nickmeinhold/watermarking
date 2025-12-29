@@ -47,10 +47,7 @@ Digital watermarking system for embedding and detecting invisible messages in im
 
 ## Build Notes
 
-- **watermarking-docker** expects `watermarking-functions/` subdirectory to contain the C++ library. Currently empty - copy from sibling directory before building:
-  ```bash
-  cp -r watermarking-functions/* watermarking-docker/watermarking-functions/
-  ```
+- **watermarking-docker** builds `watermarking-functions` from the sibling directory (managed via Docker build context context).
 
 - **Android** detection is not implemented - only iOS has native rectangle detection code
 
