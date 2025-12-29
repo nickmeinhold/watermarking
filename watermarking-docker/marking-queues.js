@@ -48,6 +48,9 @@ function runMarkImageWithProgress(filePath, imageName, message, strength, marked
       String(strength)
     ]);
 
+    let markingStartTime = 0;
+    let currentMarkingStatus = '';
+
     child.stdout.on('data', async (data) => {
       const lines = data.toString().split('\n').filter(line => line.trim());
       for (const line of lines) {
@@ -60,9 +63,34 @@ function runMarkImageWithProgress(filePath, imageName, message, strength, marked
           if (step === 'loading') {
             progressText = 'Loading image...';
           } else if (step === 'marking') {
-            const current = parts[1];
-            const total = parts[2];
-            progressText = `Embedding watermark (${current}/${total})...`;
+            const current = parseInt(parts[1], 10);
+            const total = parseInt(parts[2], 10);
+
+            if (current === 1) {
+              markingStartTime = Date.now();
+            }
+
+            let etaText = '';
+            if (current > 1 && markingStartTime > 0) {
+              const elapsed = Date.now() - markingStartTime;
+              const stepsDone = current - 1;
+              const avgPerStep = elapsed / stepsDone;
+              const stepsRemaining = total - stepsDone;
+              const etaMs = avgPerStep * stepsRemaining;
+
+              const totalSeconds = Math.round(etaMs / 1000);
+              const minutes = Math.floor(totalSeconds / 60);
+              const seconds = totalSeconds % 60;
+
+              if (minutes > 0) {
+                etaText = ` - ${minutes}m ${seconds}s remaining`;
+              } else {
+                etaText = ` - ${seconds}s remaining`;
+              }
+            }
+
+            currentMarkingStatus = `Embedding watermark (${current}/${total})${etaText}`;
+            progressText = currentMarkingStatus;
           } else if (step === 'saving') {
             progressText = 'Compressing image...';
           } else if (step === 'dft') {
@@ -104,7 +132,7 @@ module.exports = {
    * 3. Upload marked image to GCS
    * 4. Update Firestore with result
    */
-  processMarkingTask: async function(data) {
+  processMarkingTask: async function (data) {
     console.log(`Processing marking task for image: ${data.name}`);
 
     // Step 1: Download the original image
