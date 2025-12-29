@@ -134,8 +134,7 @@ class ActionStartUpload extends Action {
 }
 
 class ActionSetUploadPaused extends Action {
-  ActionSetUploadPaused({required this.id})
-      : super(<String, Object>{'id': id});
+  ActionSetUploadPaused({required this.id}) : super(<String, Object>{'id': id});
   final String id;
 }
 
@@ -241,7 +240,15 @@ class ActionMarkImage extends Action {
 /// Action to update marked images for originals
 class ActionUpdateMarkedImages extends Action {
   ActionUpdateMarkedImages({required this.markedImagesByOriginal})
-      : super(<String, Object>{'markedImagesByOriginal': markedImagesByOriginal});
+      : super(
+            <String, Object>{'markedImagesByOriginal': markedImagesByOriginal});
+
   /// Map of originalImageId -> list of marked images
   final Map<String, List<Map<String, dynamic>>> markedImagesByOriginal;
+}
+
+class ActionDeleteMarkedImage extends Action {
+  ActionDeleteMarkedImage({required this.markedImageId})
+      : super(<String, Object>{'markedImageId': markedImageId});
+  final String markedImageId;
 }

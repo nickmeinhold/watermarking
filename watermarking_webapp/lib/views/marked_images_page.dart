@@ -244,30 +244,82 @@ class _MarkedImageCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(
-            child: isProcessing
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        CircularProgressIndicator(),
-                        SizedBox(height: 8),
-                        Text(
-                          marked.progress ?? 'Queued...',
-                          style: const TextStyle(color: Colors.grey),
-                          textAlign: TextAlign.center,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                isProcessing
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const CircularProgressIndicator(),
+                            const SizedBox(height: 8),
+                            Text(
+                              marked.progress ?? 'Queued...',
+                              style: const TextStyle(color: Colors.grey),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
                         ),
-                      ],
+                      )
+                    : Image.network(
+                        marked.servingUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return const Center(
+                            child: Icon(Icons.broken_image, size: 48),
+                          );
+                        },
+                      ),
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      color: Colors.white70,
+                      shape: BoxShape.circle,
                     ),
-                  )
-                : Image.network(
-                    marked.servingUrl!,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return const Center(
-                        child: Icon(Icons.broken_image, size: 48),
-                      );
-                    },
+                    child: IconButton(
+                      icon: const Icon(Icons.delete, color: Colors.red),
+                      tooltip: 'Delete',
+                      onPressed: () {
+                        // Confirm delete
+                        showDialog<void>(
+                          context: context,
+                          builder: (BuildContext context) {
+                            return AlertDialog(
+                              title: const Text('Delete Marked Image?'),
+                              content: const Text(
+                                  'This will delete the marked image file and remove it from the list.'),
+                              actions: <Widget>[
+                                TextButton(
+                                  child: const Text('Cancel'),
+                                  onPressed: () {
+                                    Navigator.of(context).pop();
+                                  },
+                                ),
+                                TextButton(
+                                  child: const Text('Delete'),
+                                  onPressed: () {
+                                    StoreProvider.of<AppState>(context)
+                                        .dispatch(
+                                      ActionDeleteMarkedImage(
+                                        markedImageId: marked.id!,
+                                      ),
+                                    );
+                                    Navigator.of(context).pop();
+                                  },
+                                ),
+                              ],
+                            );
+                          },
+                        );
+                      },
+                    ),
                   ),
+                ),
+              ],
+            ),
           ),
           Padding(
             padding: const EdgeInsets.all(8.0),

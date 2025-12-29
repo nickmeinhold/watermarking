@@ -2,7 +2,7 @@
 // Helper module for Google Cloud Storage operations
 // Replaces gsutil command-line calls with @google-cloud/storage SDK
 
-const {Storage} = require('@google-cloud/storage');
+const { Storage } = require('@google-cloud/storage');
 const fs = require('fs');
 const path = require('path');
 
@@ -98,9 +98,32 @@ async function getSignedUrl(gcsPath) {
   return url;
 }
 
+/**
+ * Deletes a file from GCS
+ * @param {string} gcsPath - Path within the GCS bucket
+ * @returns {Promise<void>}
+ */
+async function deleteFile(gcsPath) {
+  const bucket = storage.bucket(BUCKET_NAME);
+  const file = bucket.file(gcsPath);
+
+  try {
+    await file.delete();
+    console.log(`Successfully deleted ${gcsPath}`);
+  } catch (error) {
+    if (error.code === 404) {
+      console.log(`File ${gcsPath} not found, ignoring delete error.`);
+    } else {
+      console.error(`Error deleting file ${gcsPath}:`, error);
+      throw error;
+    }
+  }
+}
+
 module.exports = {
   downloadFile,
   uploadFile,
   getPublicUrl,
-  getSignedUrl
+  getSignedUrl,
+  deleteFile
 };

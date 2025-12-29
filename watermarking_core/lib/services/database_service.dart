@@ -214,6 +214,16 @@ class DatabaseService {
     return markedRef.id;
   }
 
+  Future<void> requestMarkedImageDelete(String markedImageId) async {
+    await _db.collection('tasks').add({
+      'type': 'delete_marked_image',
+      'status': 'pending',
+      'userId': userId,
+      'markedImageId': markedImageId,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   Future<void> addDetectingEntry({
     required String itemId,
     required String originalPath,

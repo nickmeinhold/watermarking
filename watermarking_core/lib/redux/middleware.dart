@@ -39,6 +39,9 @@ List<Middleware<AppState>> createMiddlewares(
     TypedMiddleware<AppState, ActionMarkImage>(
       _markImage(databaseService),
     ),
+    TypedMiddleware<AppState, ActionDeleteMarkedImage>(
+      _deleteMarkedImage(databaseService),
+    ),
   ];
 }
 
@@ -258,7 +261,8 @@ void Function(Store<AppState> store, ActionUploadOriginalImage action,
   };
 }
 
-void Function(Store<AppState> store, ActionMarkImage action, NextDispatcher next)
+void Function(
+        Store<AppState> store, ActionMarkImage action, NextDispatcher next)
     _markImage(DatabaseService databaseService) {
   return (Store<AppState> store, ActionMarkImage action,
       NextDispatcher next) async {
@@ -276,6 +280,26 @@ void Function(Store<AppState> store, ActionMarkImage action, NextDispatcher next
       store.dispatch(ActionAddProblem(
         problem: Problem(
           type: ProblemType.marking,
+          message: error.toString(),
+          trace: trace,
+        ),
+      ));
+    }
+  };
+}
+
+void Function(Store<AppState> store, ActionDeleteMarkedImage action,
+    NextDispatcher next) _deleteMarkedImage(DatabaseService databaseService) {
+  return (Store<AppState> store, ActionDeleteMarkedImage action,
+      NextDispatcher next) async {
+    next(action);
+
+    try {
+      await databaseService.requestMarkedImageDelete(action.markedImageId);
+    } catch (error, trace) {
+      store.dispatch(ActionAddProblem(
+        problem: Problem(
+          type: ProblemType.images,
           message: error.toString(),
           trace: trace,
         ),

@@ -13,7 +13,7 @@ var miscTasks = require('./misc-queues');
 var unsubscribe = null;
 
 module.exports = {
-  setup: function() {
+  setup: function () {
     console.log('Setting up Firestore task queue listener...');
 
     // Listen for pending tasks
@@ -60,7 +60,7 @@ module.exports = {
     console.log('Task queue listener active.');
   },
 
-  shutdown: function() {
+  shutdown: function () {
     if (unsubscribe) {
       unsubscribe();
       console.log('Task queue listener stopped.');
@@ -78,6 +78,9 @@ async function processTask(taskId, data) {
       break;
     case 'get_serving_url':
       await miscTasks.processServingUrlTask(data);
+      break;
+    case 'delete_marked_image':
+      await miscTasks.processDeleteMarkedImageTask(data);
       break;
     default:
       throw new Error(`Unknown task type: ${data.type}`);
