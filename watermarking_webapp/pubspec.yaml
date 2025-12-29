@@ -1,0 +1,45 @@
+name: watermarking_webapp
+description: Watermarking Web Application - Flutter Web
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Shared core package
+  watermarking_core:
+    path: ../watermarking_core
+
+  # Firebase
+  firebase_core: ^3.8.1
+  firebase_auth: ^5.3.4
+  firebase_database: ^11.2.0
+  firebase_storage: ^12.3.7
+
+  # Auth
+  google_sign_in: ^6.2.2
+
+  # State management
+  redux: ^5.0.0
+  flutter_redux: ^0.10.0
+  redux_epics: ^0.15.0
+
+  # Routing
+  go_router: ^14.6.2
+
+  # Utilities
+  rxdart: ^0.28.0
+  file_picker: ^8.1.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
