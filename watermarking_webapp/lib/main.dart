@@ -27,7 +27,7 @@ void main() async {
       middleware: <Middleware<AppState>>[
         ...createMiddlewares(
             authService, databaseService, deviceService, storageService),
-        createEpicMiddleware(authService, databaseService, storageService),
+        createEpicMiddleware(authService, databaseService, storageService).call,
       ],
       initialState: AppState.initialState());
 
