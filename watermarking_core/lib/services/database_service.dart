@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:http/http.dart' as http;
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:watermarking_core/models/detection_item.dart';
 import 'package:watermarking_core/models/marked_image_reference.dart';
@@ -165,6 +167,8 @@ class DatabaseService {
       'timestamp': FieldValue.serverTimestamp(),
     });
 
+    _wakeUpBackend();
+
     // Create a task to get serving URL
     await _db.collection('tasks').add({
       'type': 'get_serving_url',
@@ -211,6 +215,7 @@ class DatabaseService {
       'createdAt': FieldValue.serverTimestamp(),
     });
 
+    _wakeUpBackend();
     return markedRef.id;
   }
 
@@ -248,6 +253,8 @@ class DatabaseService {
       'pathMarked': markedPath,
       'createdAt': FieldValue.serverTimestamp(),
     });
+
+    _wakeUpBackend();
   }
 
   Stream<dynamic> connectToDetecting() {
@@ -304,5 +311,27 @@ class DatabaseService {
 
   Future<dynamic> cancelDetectionItemsSubscription() {
     return detectionItemsSubscription?.cancel() ?? Future<dynamic>.value(null);
+  }
+
+  /// Pings the Cloud Run instance to ensure it scales up from zero
+  Future<void> _wakeUpBackend() async {
+    try {
+      // Access the health check endpoint
+      // We don't await the result because we don't want to block the UI
+      // or fail the operation if the backend is slow to respond.
+      // We just want to trigger the scaling.
+      http
+          .get(Uri.parse(
+              'https://watermarking-backend-2mug77svva-uc.a.run.app/'))
+          .then((_) {
+        // success
+      }).catchError((e) {
+        // ignore errors
+        print('Error waking up backend: $e');
+      });
+    } catch (e) {
+      // ignore sync errors
+      print('Error triggering backend wake-up: $e');
+    }
   }
 }

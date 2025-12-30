@@ -21,6 +21,7 @@ dependencies:
 
   # Utilities
   rxdart: ^0.28.0
+  http: ^1.6.0
 
 dev_dependencies:
   flutter_test:
