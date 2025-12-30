@@ -36,11 +36,11 @@ module.exports = {
    * 3. Run detect-wm binary
    * 4. Update Firestore with results
    */
-  processDetectionTask: async function (data) {
+  processDetectionTask: async function (taskId, data) {
     console.log(`Processing detection task for user: ${data.userId}`);
 
-    var originalPath = '/tmp/' + data.userId + '/original';
-    var markedPath = '/tmp/' + data.userId + '/marked';
+    var originalPath = '/tmp/' + taskId + '/original';
+    var markedPath = '/tmp/' + taskId + '/marked';
 
     try {
       // Step 1: Download original image
@@ -71,39 +71,47 @@ module.exports = {
 
       // Run detection binary
       await new Promise((resolve, reject) => {
-        var child = execFile('./detect-wm', [data.userId, originalPath, markedPath], (error, stdout, stderr) => {
-          if (error && error.code !== 0 && error.code !== 254) {
-            reject(error);
-          }
-        });
-
-        child.on('exit', async (code) => {
+        execFile('./detect-wm', [data.userId, originalPath, markedPath], async (error, stdout, stderr) => {
+          const code = error ? error.code : 0;
           console.log('Detection exit code:', code);
 
           if (code === 254) {
             // Error - different sizes
             console.log('Error - the marked and original images were of different sizes.');
+
+            let errorMessage = 'Different sizes for marked and original images';
+            // Try to parse sizes from stdout
+            const sizeMatch = stdout.match(/Original: (\d+x\d+), Marked: (\d+x\d+)/);
+            if (sizeMatch) {
+              errorMessage += ` (${sizeMatch[1]} vs ${sizeMatch[2]})`;
+            }
+
             await updateProgress(data.userId, {
               progress: 'Detection unsuccessful.',
               isDetecting: false,
-              error: 'Different sizes for marked and original images'
+              error: errorMessage
             });
-            reject(new Error('Different sizes for marked and original images'));
+            reject(new Error(errorMessage));
           } else if (code === 0) {
             // Success - read results
-            var resultsJson = JSON.parse(fs.readFileSync('/tmp/' + data.userId + '.json', 'utf8'));
-            console.log('Detected watermark:', resultsJson);
+            try {
+              var resultsJson = JSON.parse(fs.readFileSync('/tmp/' + taskId + '.json', 'utf8'));
+              console.log('Detected watermark:', resultsJson);
 
-            await updateProgress(data.userId, {
-              progress: 'Detection complete.',
-              isDetecting: false,
-              results: resultsJson
-            });
+              await updateProgress(data.userId, {
+                progress: 'Detection complete.',
+                isDetecting: false,
+                results: resultsJson
+              });
 
-            console.log('Message detected and results saved to database.');
-            resolve();
+              console.log('Message detected and results saved to database.');
+              resolve();
+            } catch (err) {
+              reject(err);
+            }
           } else {
-            reject(new Error(`Detection failed with code ${code}`));
+            console.error('Detection error:', stderr);
+            reject(error || new Error(`Detection failed with code ${code}`));
           }
         });
       });

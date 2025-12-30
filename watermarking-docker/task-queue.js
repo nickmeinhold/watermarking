@@ -71,10 +71,10 @@ module.exports = {
 async function processTask(taskId, data) {
   switch (data.type) {
     case 'mark':
-      await markingTasks.processMarkingTask(data);
+      await markingTasks.processMarkingTask(taskId, data);
       break;
     case 'detect':
-      await detectionTasks.processDetectionTask(data);
+      await detectionTasks.processDetectionTask(taskId, data);
       break;
     case 'get_serving_url':
       await miscTasks.processServingUrlTask(data);

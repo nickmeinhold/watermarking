@@ -132,12 +132,12 @@ module.exports = {
    * 3. Upload marked image to GCS
    * 4. Update Firestore with result
    */
-  processMarkingTask: async function (data) {
+  processMarkingTask: async function (taskId, data) {
     console.log(`Processing marking task for image: ${data.name}`);
 
     // Step 1: Download the original image
     var timestamp = String(Date.now());
-    var filePath = '/tmp/' + timestamp + '/' + data.name;
+    var filePath = '/tmp/' + taskId + '/' + data.name;
 
     await updateProgress(data.markedImageId, 'Downloading image...');
     console.log('Downloading image from:', data.path);

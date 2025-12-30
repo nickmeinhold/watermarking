@@ -43,7 +43,9 @@ int main(int argc, const char* argv[]) {
   // check original and marked images are of equal size
   if (original.rows != marked.rows || original.cols != marked.cols) {
     std::cout << "original and marked images are not equal sizes" << std::endl;
-    return -2;
+    std::cout << "Original: " << original.cols << "x" << original.rows
+              << ", Marked: " << marked.cols << "x" << marked.rows << std::endl;
+    return 254;
   }
   // set variables for the image rows and cols, now we know original and marked
   // are the same size
