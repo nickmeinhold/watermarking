@@ -255,3 +255,18 @@ class ActionDeleteMarkedImage extends Action {
       : super(<String, Object>{'markedImageId': markedImageId});
   final String markedImageId;
 }
+
+class ActionDetectMarkedImage extends Action {
+  ActionDetectMarkedImage({
+    required this.markedImageId,
+    required this.originalPath,
+    required this.markedPath,
+  }) : super(<String, Object>{
+          'markedImageId': markedImageId,
+          'originalPath': originalPath,
+          'markedPath': markedPath,
+        });
+  final String markedImageId;
+  final String originalPath;
+  final String markedPath;
+}

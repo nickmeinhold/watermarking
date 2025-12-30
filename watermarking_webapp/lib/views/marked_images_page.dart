@@ -130,7 +130,10 @@ class MarkedImagesPage extends StatelessWidget {
                                                 .selectedImage!
                                                 .markedImages[index];
                                             return _MarkedImageCard(
-                                                marked: marked);
+                                              marked: marked,
+                                              originalPath: viewModel
+                                                  .selectedImage!.filePath!,
+                                            );
                                           },
                                         ),
                                 ),
@@ -230,9 +233,13 @@ class MarkedImagesPage extends StatelessWidget {
 }
 
 class _MarkedImageCard extends StatelessWidget {
-  const _MarkedImageCard({required this.marked});
+  const _MarkedImageCard({
+    required this.marked,
+    required this.originalPath,
+  });
 
   final MarkedImageReference marked;
+  final String originalPath;
 
   @override
   Widget build(BuildContext context) {
@@ -319,6 +326,37 @@ class _MarkedImageCard extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (!isProcessing)
+                  Positioned(
+                    bottom: 4,
+                    right: 4,
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        color: Colors.white70,
+                        shape: BoxShape.circle,
+                      ),
+                      child: IconButton(
+                        icon: const Icon(Icons.analytics, color: Colors.purple),
+                        tooltip: 'Run Detection',
+                        onPressed: () {
+                          StoreProvider.of<AppState>(context).dispatch(
+                            ActionDetectMarkedImage(
+                              markedImageId: marked.id!,
+                              originalPath: originalPath,
+                              markedPath: marked.path!,
+                            ),
+                          );
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                  'Detection started. Check "Detect" page for results.'),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),

@@ -182,6 +182,28 @@ AppState _setUploadSucceeded(AppState state, ActionSetUploadSuccess action) {
 
 AppState _setDetectingProgress(
     AppState state, ActionSetDetectingProgress action) {
+  // Check if item exists
+  final existingIndex =
+      state.detections.items.indexWhere((item) => item.id == action.id);
+
+  if (existingIndex == -1) {
+    if (action.id.isEmpty) return state; // Don't add if empty ID (empty state)
+
+    // Add new item if detecting started and not in list
+    final newItem = DetectionItem(
+      id: action.id,
+      progress: action.progress,
+      result: action.result,
+      error: action.error,
+      started: DateTime.now(),
+    );
+
+    return state.copyWith(
+        detections: state.detections
+            .copyWith(items: [newItem, ...state.detections.items]));
+  }
+
+  // Update existing item
   final List<DetectionItem> nextItems = state.detections.items
       .map<DetectionItem>((DetectionItem item) => (item.id == action.id)
           ? item.copyWith(

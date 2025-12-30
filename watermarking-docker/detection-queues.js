@@ -101,6 +101,21 @@ module.exports = {
               });
 
               console.log('Message detected and results saved to database.');
+              console.log('Result added to detectionItems history.');
+
+              // Add result to detectionItems collection for history
+              await db.collection('detectionItems').add({
+                userId: data.userId,
+                originalImageId: data.originalImageId || null,
+                markedImageId: data.markedImageId || null,
+                result: resultsJson.message ? `Watermark Detected: ${resultsJson.message}` : 'Watermark Detected',
+                rawResult: resultsJson,
+                timestamp: new Date(),
+                progress: '100',
+                pathOriginal: data.pathOriginal,
+                pathMarked: data.pathMarked
+              });
+
               resolve();
             } catch (err) {
               reject(err);
