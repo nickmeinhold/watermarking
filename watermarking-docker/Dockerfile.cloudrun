@@ -64,7 +64,6 @@ RUN npm install
 # Copy JavaScript application files
 COPY listener.js /app/listener.js
 COPY task-queue.js /app/task-queue.js
-COPY tools.js /app/tools.js
 COPY misc-queues.js /app/misc-queues.js
 COPY marking-queues.js /app/marking-queues.js
 COPY detection-queues.js /app/detection-queues.js

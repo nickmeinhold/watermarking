@@ -1,27 +1,80 @@
-FROM asia.gcr.io/watermarking-print-and-scan/wm3
+# Modern Dockerfile for Cloud Run deployment
+# Consolidates all dependencies into a single build
 
-# marking and detection C++ programs 
+FROM ubuntu:22.04
 
-# copy over the C++ for the marking and detecting software 
-COPY mark.cpp /mark.cpp
-COPY detect.cpp /detect.cpp
-COPY watermarking-functions /watermarking-functions
+# Prevent interactive prompts during build
+ENV DEBIAN_FRONTEND=noninteractive
 
-# compile the marking software 
-RUN g++ mark.cpp -std=c++11 watermarking-functions/WatermarkDetection.cpp watermarking-functions/Utilities.cpp -I. -I/usr/include/ -I/usr/local/include -L/usr/local/lib -lopencv_core -lopencv_imgcodecs -lopencv_imgproc -o mark-image
+# Install system dependencies (except Node.js)
+RUN apt-get update && apt-get install -y \
+    # Build tools
+    build-essential \
+    cmake \
+    pkg-config \
+    # OpenCV and image processing
+    libopencv-dev \
+    libboost-all-dev \
+    # Utilities
+    curl \
+    wget \
+    ca-certificates \
+    gnupg \
+    && rm -rf /var/lib/apt/lists/*
 
-# compile the detection software 
-RUN g++ detect.cpp -std=c++11 watermarking-functions/WatermarkDetection.cpp watermarking-functions/Utilities.cpp -I. -I/usr/include/ -I/usr/local/include -L/usr/local/lib -lopencv_core -lopencv_imgcodecs -lopencv_imgproc -o detect-wm
+# Install Node.js 18 LTS from NodeSource
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
 
+# Set working directory
+WORKDIR /app
 
-# listener.js 
+# Copy watermarking C++ library
+COPY watermarking-functions /app/watermarking-functions
 
-# copy the listener node app 
-COPY listener.js /listener.js
-COPY tools.js /tools.js
-COPY misc-queues.js /misc-queues.js
-COPY marking-queues.js /marking-queues.js
-COPY detection-queues.js /detection-queues.js
-COPY firebase-admin-singleton.js /firebase-admin-singleton.js 
+# Copy C++ source files
+COPY mark.cpp /app/mark.cpp
+COPY detect.cpp /app/detect.cpp
 
-CMD ["nodejs", "listener.js"]
+# Compile the marking program
+RUN g++ mark.cpp -std=c++11 \
+    watermarking-functions/WatermarkDetection.cpp \
+    watermarking-functions/Utilities.cpp \
+    -I. -I/usr/include -I/usr/include/opencv4 \
+    -L/usr/lib/x86_64-linux-gnu \
+    -lopencv_core -lopencv_imgcodecs -lopencv_imgproc \
+    -o mark-image
+
+# Compile the detection program
+RUN g++ detect.cpp -std=c++11 \
+    watermarking-functions/WatermarkDetection.cpp \
+    watermarking-functions/Utilities.cpp \
+    -I. -I/usr/include -I/usr/include/opencv4 \
+    -L/usr/lib/x86_64-linux-gnu \
+    -lopencv_core -lopencv_imgcodecs -lopencv_imgproc \
+    -o detect-wm
+
+# Copy Node.js package files
+COPY package.json /app/package.json
+
+# Install Node.js dependencies
+RUN npm install
+
+# Copy JavaScript application files
+COPY listener.js /app/listener.js
+COPY task-queue.js /app/task-queue.js
+COPY misc-queues.js /app/misc-queues.js
+COPY marking-queues.js /app/marking-queues.js
+COPY detection-queues.js /app/detection-queues.js
+COPY firebase-admin-singleton.js /app/firebase-admin-singleton.js
+COPY storage-helper.js /app/storage-helper.js
+
+# Copy Firebase credentials
+COPY keys/firebase-service-account.json /app/keys/firebase-service-account.json
+
+# Cloud Run expects services to listen on PORT environment variable
+ENV PORT=8080
+
+# Run the listener
+CMD ["node", "listener.js"]
