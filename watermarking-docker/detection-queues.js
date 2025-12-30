@@ -43,24 +43,20 @@ module.exports = {
     var markedPath = '/tmp/' + taskId + '/marked';
 
     try {
-      // Step 1: Download original image
+      // Step 1 & 2: Download images in parallel
       await updateProgress(data.userId, {
-        progress: 'Server has received request, downloading original image from storage...',
+        progress: 'Server has received request, downloading images from storage...',
         isDetecting: true
       });
 
+      console.log('Downloading images...');
       console.log('Downloading original image from:', data.pathOriginal);
-      await downloadFileAsync(data.pathOriginal, originalPath);
-      console.log('Downloaded original image.');
-
-      // Step 2: Download marked image
-      await updateProgress(data.userId, {
-        progress: 'Server downloaded original image, now downloading marked image from storage...'
-      });
-
       console.log('Downloading marked image from:', data.pathMarked);
-      await downloadFileAsync(data.pathMarked, markedPath);
-      console.log('Downloaded marked image.');
+
+      await Promise.all([
+        downloadFileAsync(data.pathOriginal, originalPath).then(() => console.log('Downloaded original image.')),
+        downloadFileAsync(data.pathMarked, markedPath).then(() => console.log('Downloaded marked image.'))
+      ]);
 
       // Step 3: Run detection
       await updateProgress(data.userId, {
@@ -71,7 +67,7 @@ module.exports = {
 
       // Run detection binary
       await new Promise((resolve, reject) => {
-        execFile('./detect-wm', [data.userId, originalPath, markedPath], async (error, stdout, stderr) => {
+        execFile('./detect-wm', [taskId, originalPath, markedPath], async (error, stdout, stderr) => {
           const code = error ? error.code : 0;
           console.log('Detection exit code:', code);
 
@@ -124,6 +120,17 @@ module.exports = {
         error: error.message || String(error)
       });
       throw error;
+    } finally {
+      // Cleanup temporary files
+      try {
+        const tempDir = '/tmp/' + taskId;
+        if (fs.existsSync(tempDir)) {
+          fs.rmSync(tempDir, { recursive: true, force: true });
+          console.log(`Cleaned up temporary directory: ${tempDir}`);
+        }
+      } catch (cleanupError) {
+        console.error(`Error cleaning up temporary directory: ${cleanupError}`);
+      }
     }
   }
 };

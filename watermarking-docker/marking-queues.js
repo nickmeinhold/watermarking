@@ -135,46 +135,64 @@ module.exports = {
   processMarkingTask: async function (taskId, data) {
     console.log(`Processing marking task for image: ${data.name}`);
 
-    // Step 1: Download the original image
-    var timestamp = String(Date.now());
-    var filePath = '/tmp/' + taskId + '/' + data.name;
+    try {
+      // Step 1: Download the original image
+      var timestamp = String(Date.now());
+      var filePath = '/tmp/' + taskId + '/' + data.name;
 
-    await updateProgress(data.markedImageId, 'Downloading image...');
-    console.log('Downloading image from:', data.path);
-    await downloadFileAsync(data.path, filePath);
-    console.log('Downloaded to:', filePath);
+      await updateProgress(data.markedImageId, 'Downloading image...');
+      console.log('Downloading image from:', data.path);
+      await downloadFileAsync(data.path, filePath);
+      console.log('Downloaded to:', filePath);
 
-    // Step 2: Run the marking binary with progress updates
-    console.log(`Marking image with message "${data.message}" at strength ${data.strength}`);
-    await runMarkImageWithProgress(
-      filePath,
-      data.name,
-      data.message,
-      data.strength,
-      data.markedImageId
-    );
+      // Step 2: Run the marking binary with progress updates
+      console.log(`Marking image with message "${data.message}" at strength ${data.strength}`);
+      await runMarkImageWithProgress(
+        filePath,
+        data.name,
+        data.message,
+        data.strength,
+        data.markedImageId
+      );
 
-    // Step 3: Upload the marked image
-    var markedFilePath = filePath + '-marked.png';
-    var markedGcsPath = 'marked-images/' + data.userId + '/' + timestamp + '/' + data.name + '.png';
+      // Step 3: Upload the marked image
+      var markedFilePath = filePath + '-marked.png';
+      var markedGcsPath = 'marked-images/' + data.userId + '/' + timestamp + '/' + data.name + '.png';
 
-    await updateProgress(data.markedImageId, 'Uploading marked image...');
-    console.log('Uploading marked image to:', markedGcsPath);
-    await uploadFileAsync(markedFilePath, markedGcsPath);
+      await updateProgress(data.markedImageId, 'Uploading marked image...');
+      console.log('Uploading marked image to:', markedGcsPath);
+      await uploadFileAsync(markedFilePath, markedGcsPath);
 
-    // Step 4: Get signed URL (valid for 10 years)
-    await updateProgress(data.markedImageId, 'Generating URL...');
-    var servingUrl = await storageHelper.getSignedUrl(markedGcsPath);
-    console.log('Got signed URL:', servingUrl);
+      // Step 4: Get signed URL (valid for 10 years)
+      await updateProgress(data.markedImageId, 'Generating URL...');
+      var servingUrl = await storageHelper.getSignedUrl(markedGcsPath);
+      console.log('Got signed URL:', servingUrl);
 
-    // Step 5: Update Firestore with the marked image data (clears progress)
-    await db.collection('markedImages').doc(data.markedImageId).update({
-      path: markedGcsPath,
-      servingUrl: servingUrl,
-      progress: null,
-      processedAt: new Date()
-    });
+      // Step 5: Update Firestore with the marked image data (clears progress)
+      await db.collection('markedImages').doc(data.markedImageId).update({
+        path: markedGcsPath,
+        servingUrl: servingUrl,
+        progress: null,
+        processedAt: new Date()
+      });
 
-    console.log('Marking task completed successfully');
+      console.log('Marking task completed successfully');
+    } catch (error) {
+      console.error('Marking task failed:', error);
+      await updateProgress(data.markedImageId, null); // Clear progress on error
+      throw error;
+    } finally {
+      // Cleanup temporary files
+      var fs = require('fs');
+      try {
+        const tempDir = '/tmp/' + taskId;
+        if (fs.existsSync(tempDir)) {
+          fs.rmSync(tempDir, { recursive: true, force: true });
+          console.log(`Cleaned up temporary directory: ${tempDir}`);
+        }
+      } catch (cleanupError) {
+        console.error(`Error cleaning up temporary directory: ${cleanupError}`);
+      }
+    }
   }
 };

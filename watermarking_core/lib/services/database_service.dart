@@ -322,7 +322,7 @@ class DatabaseService {
       // We just want to trigger the scaling.
       http
           .get(Uri.parse(
-              'https://watermarking-backend-2mug77svva-uc.a.run.app/'))
+              'https://watermarking-backend-78940960204.us-central1.run.app/'))
           .then((_) {
         // success
       }).catchError((e) {
