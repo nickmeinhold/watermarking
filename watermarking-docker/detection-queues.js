@@ -5,7 +5,7 @@
 var firebaseAdminSingleton = require('./firebase-admin-singleton');
 var db = firebaseAdminSingleton.getFirestore();
 
-var execFile = require('child_process').execFile;
+var { execFile, spawn } = require('child_process');
 var fs = require('fs');
 var { promisify } = require('util');
 var execFileAsync = promisify(execFile);
@@ -78,8 +78,42 @@ module.exports = {
 
       // Run detection binary
       await new Promise((resolve, reject) => {
-        execFile('./detect-wm', [taskId, originalPath, markedPath], async (error, stdout, stderr) => {
-          const code = error ? error.code : 0;
+        const detectProcess = spawn('./detect-wm', [taskId, originalPath, markedPath]);
+
+        let stdout = '';
+        let stderr = '';
+        let lastProgressUpdate = 0;
+
+        detectProcess.stdout.on('data', async (chunk) => {
+          const str = chunk.toString();
+          stdout += str;
+          console.log('[detect-wm]', str.trim());
+
+          // Parse progress
+          const lines = str.split('\n');
+          for (const line of lines) {
+            if (line.startsWith('PROGRESS:')) {
+              const progressMsg = line.replace('PROGRESS:', '').trim();
+              const now = Date.now();
+              // Throttle updates to max once per second
+              if (now - lastProgressUpdate > 1000) {
+                lastProgressUpdate = now;
+                updateProgress(data.userId, {
+                  progress: progressMsg,
+                  isDetecting: true
+                }).catch(e => console.error('Progress update error:', e));
+              }
+            }
+          }
+        });
+
+        detectProcess.stderr.on('data', (data) => {
+          const str = data.toString();
+          stderr += str;
+          console.error('[detect-wm error]', str);
+        });
+
+        detectProcess.on('close', async (code) => {
           console.log('Detection exit code:', code);
 
           if (code === 254) {
@@ -133,7 +167,7 @@ module.exports = {
             }
           } else {
             console.error('Detection error:', stderr);
-            reject(error || new Error(`Detection failed with code ${code}`));
+            reject(new Error(`Detection failed with code ${code}`));
           }
         });
       });

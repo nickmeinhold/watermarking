@@ -42,7 +42,9 @@ int main(int argc, const char* argv[]) {
 
   // check original and marked images are of equal size
   if (original.rows != marked.rows || original.cols != marked.cols) {
-    std::cout << "Original and marked images are not equal sizes. Resizing marked image to match original." << std::endl;
+    std::cout << "Original and marked images are not equal sizes. Resizing marked image to match "
+                 "original."
+              << std::endl;
     std::cout << "Original: " << original.cols << "x" << original.rows
               << ", Marked: " << marked.cols << "x" << marked.rows << std::endl;
     cv::resize(marked, marked, original.size());
@@ -74,6 +76,7 @@ int main(int argc, const char* argv[]) {
   }
 
   // extract the watermark from the frequency domain
+  std::cout << "PROGRESS:Extracting watermark from frequency domain..." << std::endl;
   double* extractedMark = new double[p * p];
   extractMark(hsvOriginal.rows, hsvOriginal.cols, p, p, lumaArray, extractedMark);
 
@@ -84,6 +87,9 @@ int main(int argc, const char* argv[]) {
 
   k = 1;
   while (1) {
+    if (k >= 1) {
+      std::cout << "PROGRESS:Analyzing sequence " << k << "..." << std::endl;
+    }
     // generate each array and perform correlation
     generateArray(p, k, wmArray);
     fastCorrelation(p, p, extractedMark, wmArray, correlationVals);
