@@ -1,0 +1,5 @@
+steps:
+- name: 'gcr.io/cloud-builders/docker'
+  args: [ 'build', '-t', 'gcr.io/watermarking-4a428/watermarking-cloudrun:latest', '-f', 'Dockerfile.cloudrun', '.' ]
+images:
+- 'gcr.io/watermarking-4a428/watermarking-cloudrun:latest'

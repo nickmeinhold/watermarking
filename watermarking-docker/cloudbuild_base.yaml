@@ -1,0 +1,7 @@
+steps:
+- name: 'gcr.io/cloud-builders/docker'
+  args: [ 'build', '-t', 'gcr.io/watermarking-4a428/watermarking-base:latest', '-f', 'Dockerfile.base', '.' ]
+- name: 'gcr.io/cloud-builders/docker'
+  args: [ 'push', 'gcr.io/watermarking-4a428/watermarking-base:latest' ]
+images:
+- 'gcr.io/watermarking-4a428/watermarking-base:latest'
