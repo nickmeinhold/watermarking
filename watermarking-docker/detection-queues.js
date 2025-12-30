@@ -13,13 +13,29 @@ var execFileAsync = promisify(execFile);
 
 var storageHelper = require('./storage-helper');
 
-// Promisify storage helper
-function downloadFileAsync(gcsPath, localPath) {
+// Promisify storage helper with progress
+function downloadFileAsync(gcsPath, localPath, label, userId) {
   return new Promise((resolve, reject) => {
-    storageHelper.downloadFile(gcsPath, localPath, (error) => {
-      if (error) reject(error);
-      else resolve();
-    });
+    let lastUpdate = 0;
+    let lastPercent = 0;
+
+    storageHelper.downloadFileWithProgress(gcsPath, localPath, async (percent, downloaded, total) => {
+      const now = Date.now();
+      // Update every 2 seconds or every 20% change to avoid spamming Firestore
+      if ((now - lastUpdate > 2000) || (Math.abs(percent - lastPercent) >= 20)) {
+        lastUpdate = now;
+        lastPercent = percent;
+
+        try {
+          await updateProgress(userId, {
+            progress: `Downloading ${label}: ${percent}%`
+          });
+        } catch (e) {
+          // Ignore progress update errors
+          console.error('Progress update error:', e);
+        }
+      }
+    }).then(resolve).catch(reject);
   });
 }
 
@@ -29,13 +45,6 @@ async function updateProgress(userId, updates) {
 }
 
 module.exports = {
-  /**
-   * Process a complete detection task:
-   * 1. Download original image from GCS
-   * 2. Download marked image from GCS
-   * 3. Run detect-wm binary
-   * 4. Update Firestore with results
-   */
   processDetectionTask: async function (taskId, data) {
     console.log(`Processing detection task for user: ${data.userId}`);
 
@@ -43,7 +52,6 @@ module.exports = {
     var markedPath = '/tmp/' + taskId + '/marked';
 
     try {
-      // Step 1 & 2: Download images in parallel
       await updateProgress(data.userId, {
         progress: 'Server has received request, downloading images from storage...',
         isDetecting: true
@@ -53,10 +61,13 @@ module.exports = {
       console.log('Downloading original image from:', data.pathOriginal);
       console.log('Downloading marked image from:', data.pathMarked);
 
-      await Promise.all([
-        downloadFileAsync(data.pathOriginal, originalPath).then(() => console.log('Downloaded original image.')),
-        downloadFileAsync(data.pathMarked, markedPath).then(() => console.log('Downloaded marked image.'))
-      ]);
+      // Download sequentially to provide clear progress for each file
+      // (Parallel downloads might confuse the single status string UI)
+      await downloadFileAsync(data.pathOriginal, originalPath, 'original image', data.userId);
+      console.log('Downloaded original image.');
+
+      await downloadFileAsync(data.pathMarked, markedPath, 'marked image', data.userId);
+      console.log('Downloaded marked image.');
 
       // Step 3: Run detection
       await updateProgress(data.userId, {

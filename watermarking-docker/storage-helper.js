@@ -44,6 +44,66 @@ function downloadFile(gcsPath, localPath, callback) {
 }
 
 /**
+ * Downloads a file from Google Cloud Storage with progress updates
+ * @param {string} gcsPath - Path within the GCS bucket
+ * @param {string} localPath - Local file system path to save to
+ * @param {function} onProgress - Callback(percent, bytesDownloaded, totalBytes)
+ * @returns {Promise<void>}
+ */
+function downloadFileWithProgress(gcsPath, localPath, onProgress) {
+  return new Promise(async (resolve, reject) => {
+    console.log(`Downloading (stream) from GCS: gs://${BUCKET_NAME}/${gcsPath} -> ${localPath}`);
+
+    // Ensure directory exists
+    const dir = path.dirname(localPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
+    const bucket = storage.bucket(BUCKET_NAME);
+    const file = bucket.file(gcsPath);
+
+    try {
+      // Get file metadata to know total size
+      const [metadata] = await file.getMetadata();
+      const totalBytes = parseInt(metadata.size, 10);
+      let bytesDownloaded = 0;
+
+      const readStream = file.createReadStream();
+      const writeStream = fs.createWriteStream(localPath);
+
+      readStream.on('data', (chunk) => {
+        bytesDownloaded += chunk.length;
+        if (onProgress && totalBytes > 0) {
+          const percent = Math.round((bytesDownloaded / totalBytes) * 100);
+          onProgress(percent, bytesDownloaded, totalBytes);
+        }
+      });
+
+      readStream.on('error', (err) => {
+        console.error(`Error in read stream: ${err}`);
+        reject(err);
+      });
+
+      writeStream.on('error', (err) => {
+        console.error(`Error in write stream: ${err}`);
+        reject(err);
+      });
+
+      writeStream.on('finish', () => {
+        console.log(`Successfully downloaded to ${localPath}`);
+        resolve();
+      });
+
+      readStream.pipe(writeStream);
+    } catch (err) {
+      console.error(`Error starting download: ${err}`);
+      reject(err);
+    }
+  });
+}
+
+/**
  * Uploads a file to Google Cloud Storage
  * @param {string} localPath - Local file system path to upload from (e.g., '/tmp/123/image-marked.png')
  * @param {string} gcsPath - Path within the GCS bucket to upload to (e.g., 'marked-images/uid/123/image.png')
@@ -125,5 +185,7 @@ module.exports = {
   uploadFile,
   getPublicUrl,
   getSignedUrl,
-  deleteFile
+  getSignedUrl,
+  deleteFile,
+  downloadFileWithProgress
 };
