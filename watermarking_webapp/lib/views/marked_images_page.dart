@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_redux/flutter_redux.dart';
 import 'package:redux/redux.dart';
 import 'package:watermarking_core/watermarking_core.dart';
@@ -319,6 +320,25 @@ class _MarkedImageCard extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          ),
+          Positioned(
+            top: 4,
+            left: 4,
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Colors.white70,
+                shape: BoxShape.circle,
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.open_in_new, color: Colors.blue),
+                tooltip: 'Open in New Window',
+                onPressed: () {
+                  if (marked.servingUrl != null) {
+                    launchUrl(Uri.parse(marked.servingUrl!));
+                  }
+                },
+              ),
             ),
           ),
           Padding(
