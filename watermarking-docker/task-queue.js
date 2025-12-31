@@ -37,12 +37,9 @@ module.exports = {
             try {
               await processTask(taskId, taskData);
 
-              // Mark as completed
-              await taskDoc.ref.update({
-                status: 'completed',
-                completedAt: new Date()
-              });
-              console.log(`Task ${taskId} completed successfully`);
+              // Delete completed task
+              await taskDoc.ref.delete();
+              console.log(`Task ${taskId} completed successfully and deleted`);
             } catch (error) {
               console.error(`Task ${taskId} failed:`, error);
               await taskDoc.ref.update({

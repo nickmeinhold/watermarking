@@ -88,5 +88,16 @@ module.exports = {
 
     await detectionDocRef.delete();
     console.log(`Deleted detection item document ${data.detectionItemId}`);
+
+    // Clean up the detecting status document if it matches this detection
+    const detectingDocRef = db.collection('detecting').doc(data.userId);
+    const detectingDoc = await detectingDocRef.get();
+    if (detectingDoc.exists) {
+      const detectingData = detectingDoc.data();
+      if (detectingData.itemId === data.detectionItemId || !detectingData.isDetecting) {
+        await detectingDocRef.delete();
+        console.log(`Deleted detecting status document for user ${data.userId}`);
+      }
+    }
   }
 };
