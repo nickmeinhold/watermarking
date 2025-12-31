@@ -31,8 +31,8 @@ class DetectionHistoryListView extends StatelessWidget {
                     itemCount: items.length,
                     itemBuilder: (BuildContext context, int index) {
                       final item = items[index];
-                      final originalUrl = item.originalRef?.url;
                       final localPath = item.extractedRef?.localPath;
+                      final servingUrl = item.extractedRef?.servingUrl;
                       final started = item.extractedRef?.upload?.started;
                       return Dismissible(
                         key: Key(item.id ?? index.toString()),
@@ -56,22 +56,89 @@ class DetectionHistoryListView extends StatelessWidget {
                             color: (item.result == null)
                                 ? Colors.blueGrey
                                 : Colors.white,
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: <Widget>[
-                                ListTile(
-                                  leading: originalUrl != null
-                                      ? Image.network(originalUrl)
-                                      : const Icon(Icons.image),
-                                  title: Text(item.result ?? ''),
-                                  subtitle: Text(
-                                    started?.toIso8601String() ?? '',
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Extracted image thumbnail
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: SizedBox(
+                                      width: 80,
+                                      height: 80,
+                                      child: localPath != null
+                                          ? Image.file(
+                                              File(localPath),
+                                              fit: BoxFit.cover,
+                                            )
+                                          : servingUrl != null
+                                              ? Image.network(
+                                                  servingUrl,
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder:
+                                                      (context, error, stack) =>
+                                                          _imagePlaceholder(),
+                                                )
+                                              : _imagePlaceholder(),
+                                    ),
                                   ),
-                                  trailing: localPath != null
-                                      ? Image.file(File(localPath))
-                                      : null,
-                                ),
-                              ],
+                                  const SizedBox(width: 12),
+                                  // Detection info
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          item.result ?? 'Processing...',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: item.result == null
+                                                ? Colors.white70
+                                                : Colors.black87,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        if (item.confidence != null)
+                                          Row(
+                                            children: [
+                                              Icon(
+                                                Icons.verified,
+                                                size: 16,
+                                                color: _confidenceColor(
+                                                    item.confidence!),
+                                              ),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                'Confidence: ${item.confidence!.toStringAsFixed(1)}',
+                                                style: TextStyle(
+                                                  color: _confidenceColor(
+                                                      item.confidence!),
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        if (started != null)
+                                          Padding(
+                                            padding:
+                                                const EdgeInsets.only(top: 4),
+                                            child: Text(
+                                              _formatDate(started),
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: item.result == null
+                                                    ? Colors.white54
+                                                    : Colors.grey,
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -82,6 +149,32 @@ class DetectionHistoryListView extends StatelessWidget {
           );
         });
   }
+}
+
+Widget _imagePlaceholder() {
+  return Container(
+    color: Colors.grey.shade300,
+    child: const Icon(
+      Icons.image,
+      size: 40,
+      color: Colors.grey,
+    ),
+  );
+}
+
+Color _confidenceColor(double confidence) {
+  if (confidence >= 10) return Colors.green;
+  if (confidence >= 7) return Colors.orange;
+  return Colors.red;
+}
+
+String _formatDate(DateTime date) {
+  final now = DateTime.now();
+  final diff = now.difference(date);
+  if (diff.inMinutes < 1) return 'Just now';
+  if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+  if (diff.inHours < 24) return '${diff.inHours}h ago';
+  return '${diff.inDays}d ago';
 }
 
 class DetectionSteps extends StatelessWidget {
