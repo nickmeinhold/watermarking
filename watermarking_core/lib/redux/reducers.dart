@@ -13,21 +13,21 @@ import 'package:watermarking_core/redux/actions.dart';
 /// Reducer
 final Reducer<AppState> appReducer =
     combineReducers<AppState>(<Reducer<AppState>>[
-  TypedReducer<AppState, ActionSetAuthState>(_setAuthState),
-  TypedReducer<AppState, ActionSetProfilePicUrl>(_setProfilePicUrl),
-  TypedReducer<AppState, ActionSetOriginalImages>(_setOriginalImages),
-  TypedReducer<AppState, ActionUpdateMarkedImages>(_updateMarkedImages),
-  TypedReducer<AppState, ActionSetDetectionItems>(_setDetectionItems),
-  TypedReducer<AppState, ActionSetBottomNav>(_setBottomNav),
-  TypedReducer<AppState, ActionShowBottomSheet>(_setBottomSheet),
-  TypedReducer<AppState, ActionSetSelectedImage>(_setSelectedImage),
-  TypedReducer<AppState, ActionAddDetectionItem>(_addDetectionItem),
-  TypedReducer<AppState, ActionStartUpload>(_setUploadStartTime),
-  TypedReducer<AppState, ActionSetUploadProgress>(_setUploadProgress),
-  TypedReducer<AppState, ActionSetUploadSuccess>(_setUploadSucceeded),
-  TypedReducer<AppState, ActionSetDetectingProgress>(_setDetectingProgress),
-  TypedReducer<AppState, ActionAddProblem>(_addProblem),
-  TypedReducer<AppState, ActionRemoveProblem>(_removeProblem),
+  TypedReducer<AppState, ActionSetAuthState>(_setAuthState).call,
+  TypedReducer<AppState, ActionSetProfilePicUrl>(_setProfilePicUrl).call,
+  TypedReducer<AppState, ActionSetOriginalImages>(_setOriginalImages).call,
+  TypedReducer<AppState, ActionUpdateMarkedImages>(_updateMarkedImages).call,
+  TypedReducer<AppState, ActionSetDetectionItems>(_setDetectionItems).call,
+  TypedReducer<AppState, ActionSetBottomNav>(_setBottomNav).call,
+  TypedReducer<AppState, ActionShowBottomSheet>(_setBottomSheet).call,
+  TypedReducer<AppState, ActionSetSelectedImage>(_setSelectedImage).call,
+  TypedReducer<AppState, ActionAddDetectionItem>(_addDetectionItem).call,
+  TypedReducer<AppState, ActionStartUpload>(_setUploadStartTime).call,
+  TypedReducer<AppState, ActionSetUploadProgress>(_setUploadProgress).call,
+  TypedReducer<AppState, ActionSetUploadSuccess>(_setUploadSucceeded).call,
+  TypedReducer<AppState, ActionSetDetectingProgress>(_setDetectingProgress).call,
+  TypedReducer<AppState, ActionAddProblem>(_addProblem).call,
+  TypedReducer<AppState, ActionRemoveProblem>(_removeProblem).call,
 ]);
 
 AppState _setAuthState(
@@ -52,13 +52,17 @@ AppState _updateMarkedImages(AppState state, ActionUpdateMarkedImages action) {
     final markedData = action.markedImagesByOriginal[original.id] ?? [];
     final markedImages = markedData
         .map((data) => MarkedImageReference(
-              id: data['id'] as String?,
-              message: data['message'] as String?,
-              name: data['name'] as String?,
-              strength: data['strength'] as int?,
-              path: data['path'] as String?,
-              servingUrl: data['servingUrl'] as String?,
-              progress: data['progress'] as String?,
+              id: data['id']?.toString(),
+              message: data['message']?.toString(),
+              name: data['name']?.toString(),
+              strength: (data['strength'] is num)
+                  ? (data['strength'] as num).toInt()
+                  : (data['strength'] is String
+                      ? int.tryParse(data['strength'] as String)
+                      : null),
+              path: data['path']?.toString(),
+              servingUrl: data['servingUrl']?.toString(),
+              progress: data['progress']?.toString(),
             ))
         .toList();
     return original.copyWith(markedImages: markedImages);
@@ -71,13 +75,17 @@ AppState _updateMarkedImages(AppState state, ActionUpdateMarkedImages action) {
     final markedData = action.markedImagesByOriginal[selectedImage.id] ?? [];
     final markedImages = markedData
         .map((data) => MarkedImageReference(
-              id: data['id'] as String?,
-              message: data['message'] as String?,
-              name: data['name'] as String?,
-              strength: data['strength'] as int?,
-              path: data['path'] as String?,
-              servingUrl: data['servingUrl'] as String?,
-              progress: data['progress'] as String?,
+              id: data['id']?.toString(),
+              message: data['message']?.toString(),
+              name: data['name']?.toString(),
+              strength: (data['strength'] is num)
+                  ? (data['strength'] as num).toInt()
+                  : (data['strength'] is String
+                      ? int.tryParse(data['strength'] as String)
+                      : null),
+              path: data['path']?.toString(),
+              servingUrl: data['servingUrl']?.toString(),
+              progress: data['progress']?.toString(),
             ))
         .toList();
     updatedSelectedImage = selectedImage.copyWith(markedImages: markedImages);

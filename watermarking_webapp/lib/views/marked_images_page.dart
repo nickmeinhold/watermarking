@@ -273,9 +273,28 @@ class _MarkedImageCard extends StatelessWidget {
                     : Image.network(
                         marked.servingUrl!,
                         fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
                           return const Center(
-                            child: Icon(Icons.broken_image, size: 48),
+                              child: CircularProgressIndicator());
+                        },
+                        errorBuilder: (context, error, stackTrace) {
+                          return Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.error,
+                                    color: Colors.red, size: 32),
+                                Padding(
+                                  padding: const EdgeInsets.all(4.0),
+                                  child: Text(
+                                    'Error loading image',
+                                    style: TextStyle(
+                                        fontSize: 10, color: Colors.red[900]),
+                                  ),
+                                ),
+                              ],
+                            ),
                           );
                         },
                       ),
@@ -357,26 +376,27 @@ class _MarkedImageCard extends StatelessWidget {
                       ),
                     ),
                   ),
+                if (true) // Wrap directly to avoid potential syntax issues with previous conditional
+                  Positioned(
+                    top: 4,
+                    left: 4,
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        color: Colors.white70,
+                        shape: BoxShape.circle,
+                      ),
+                      child: IconButton(
+                        icon: const Icon(Icons.open_in_new, color: Colors.blue),
+                        tooltip: 'Open in New Window',
+                        onPressed: () {
+                          if (marked.servingUrl != null) {
+                            launchUrl(Uri.parse(marked.servingUrl!));
+                          }
+                        },
+                      ),
+                    ),
+                  ),
               ],
-            ),
-          ),
-          Positioned(
-            top: 4,
-            left: 4,
-            child: Container(
-              decoration: const BoxDecoration(
-                color: Colors.white70,
-                shape: BoxShape.circle,
-              ),
-              child: IconButton(
-                icon: const Icon(Icons.open_in_new, color: Colors.blue),
-                tooltip: 'Open in New Window',
-                onPressed: () {
-                  if (marked.servingUrl != null) {
-                    launchUrl(Uri.parse(marked.servingUrl!));
-                  }
-                },
-              ),
             ),
           ),
           Padding(

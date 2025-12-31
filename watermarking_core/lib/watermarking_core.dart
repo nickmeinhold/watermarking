@@ -1,5 +1,5 @@
 /// Shared models, services, and Redux logic for watermarking apps.
-library watermarking_core;
+library;
 
 // Models
 export 'models/app_state.dart';

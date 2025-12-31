@@ -17,34 +17,34 @@ List<Middleware<AppState>> createMiddlewares(
   return <Middleware<AppState>>[
     TypedMiddleware<AppState, ActionSignout>(
       _signOut(authService),
-    ),
+    ).call,
     TypedMiddleware<AppState, ActionSetAuthState>(
       _setUserAndObserveDatabase(databaseService, storageService),
-    ),
+    ).call,
     TypedMiddleware<AppState, ActionPerformExtraction>(
       _performExtraction(deviceService),
-    ),
+    ).call,
     TypedMiddleware<AppState, ActionProcessExtraction>(
       _processExtraction(databaseService, deviceService),
-    ),
+    ).call,
     TypedMiddleware<AppState, ActionSetUploadSuccess>(
       _startWatermarkDetection(databaseService),
-    ),
+    ).call,
     TypedMiddleware<AppState, ActionCancelUpload>(
       _cancelUpload(storageService),
-    ),
+    ).call,
     TypedMiddleware<AppState, ActionUploadOriginalImage>(
       _uploadOriginalImage(databaseService, storageService),
-    ),
+    ).call,
     TypedMiddleware<AppState, ActionMarkImage>(
       _markImage(databaseService),
-    ),
+    ).call,
     TypedMiddleware<AppState, ActionDeleteMarkedImage>(
       _deleteMarkedImage(databaseService),
-    ),
+    ).call,
     TypedMiddleware<AppState, ActionDetectMarkedImage>(
       _detectMarkedImage(databaseService),
-    ),
+    ).call,
   ];
 }
 

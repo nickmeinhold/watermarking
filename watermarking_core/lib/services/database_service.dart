@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 
 import 'package:http/http.dart' as http;
 
@@ -38,8 +39,12 @@ class DatabaseService {
         ..sort((a, b) {
           final aData = a.data() as Map<String, dynamic>;
           final bData = b.data() as Map<String, dynamic>;
-          final aTimestamp = aData['timestamp'] as Timestamp?;
-          final bTimestamp = bData['timestamp'] as Timestamp?;
+          final aTimestamp = (aData['timestamp'] is Timestamp)
+              ? aData['timestamp'] as Timestamp
+              : null;
+          final bTimestamp = (bData['timestamp'] is Timestamp)
+              ? bData['timestamp'] as Timestamp
+              : null;
           if (aTimestamp == null && bTimestamp == null) return 0;
           if (aTimestamp == null) return 1;
           if (bTimestamp == null) return -1;
@@ -60,20 +65,24 @@ class DatabaseService {
           final markedData = markedDoc.data();
           return MarkedImageReference(
             id: markedDoc.id,
-            message: markedData['message'] as String?,
-            name: markedData['name'] as String?,
-            strength: markedData['strength'] as int?,
-            path: markedData['path'] as String?,
-            servingUrl: markedData['servingUrl'] as String?,
-            progress: markedData['progress'] as String?,
+            message: markedData['message']?.toString(),
+            name: markedData['name']?.toString(),
+            strength: (markedData['strength'] is num)
+                ? (markedData['strength'] as num).toInt()
+                : (markedData['strength'] is String
+                    ? int.tryParse(markedData['strength'] as String)
+                    : null),
+            path: markedData['path']?.toString(),
+            servingUrl: markedData['servingUrl']?.toString(),
+            progress: markedData['progress']?.toString(),
           );
         }).toList();
 
         imagesList.add(OriginalImageReference(
           id: doc.id,
-          name: data['name'] as String?,
-          filePath: data['path'] as String?,
-          url: data['servingUrl'] as String?,
+          name: data['name']?.toString(),
+          filePath: data['path']?.toString(),
+          url: data['servingUrl']?.toString(),
           markedImages: markedImages,
         ));
       }
@@ -97,18 +106,18 @@ class DatabaseService {
 
       for (final doc in snapshot.docs) {
         final data = doc.data() as Map<String, dynamic>;
-        final originalImageId = data['originalImageId'] as String?;
+        final originalImageId = data['originalImageId']?.toString();
         if (originalImageId == null) continue;
 
         markedByOriginal.putIfAbsent(originalImageId, () => []);
         markedByOriginal[originalImageId]!.add({
           'id': doc.id,
-          'message': data['message'],
-          'name': data['name'],
+          'message': data['message']?.toString(),
+          'name': data['name']?.toString(),
           'strength': data['strength'],
-          'path': data['path'],
-          'servingUrl': data['servingUrl'],
-          'progress': data['progress'],
+          'path': data['path']?.toString(),
+          'servingUrl': data['servingUrl']?.toString(),
+          'progress': data['progress']?.toString(),
         });
       }
 
@@ -131,8 +140,8 @@ class DatabaseService {
       }
       final data = snapshot.data() as Map<String, dynamic>?;
       return ActionSetProfile(
-        name: data?['name'] as String? ?? '',
-        email: data?['email'] as String? ?? '',
+        name: data?['name']?.toString() ?? '',
+        email: data?['email']?.toString() ?? '',
       );
     });
   }
@@ -278,10 +287,10 @@ class DatabaseService {
       }
 
       return ActionSetDetectingProgress(
-        id: data?['itemId'] as String? ?? '',
-        progress: data?['progress'] as String? ?? '',
-        result: resultsMap?['message'] as String?,
-        error: data?['error'] as String?,
+        id: data?['itemId']?.toString() ?? '',
+        progress: data?['progress']?.toString() ?? '',
+        result: resultsMap?['message']?.toString(),
+        error: data?['error']?.toString(),
       );
     });
   }
@@ -300,8 +309,8 @@ class DatabaseService {
         final data = doc.data() as Map<String, dynamic>;
         return DetectionItem(
           id: doc.id,
-          progress: data['progress'] as String? ?? '',
-          result: data['result'] as String?,
+          progress: data['progress']?.toString() ?? '',
+          result: data['result']?.toString(),
         );
       }).toList();
 
@@ -326,12 +335,10 @@ class DatabaseService {
           .then((_) {
         // success
       }).catchError((e) {
-        // ignore errors
-        print('Error waking up backend: $e');
+        developer.log('Error waking up backend: $e', name: 'DatabaseService');
       });
     } catch (e) {
-      // ignore sync errors
-      print('Error triggering backend wake-up: $e');
+      developer.log('Error triggering backend wake-up: $e', name: 'DatabaseService');
     }
   }
 }

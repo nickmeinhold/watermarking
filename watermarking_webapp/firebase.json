@@ -1,1 +1,42 @@
-{"flutter":{"platforms":{"dart":{"lib/firebase_options.dart":{"projectId":"watermarking-4a428","configurations":{"web":"1:78940960204:web:a79807e595595c7d7cd969"}}}}}}
+{
+    "flutter": {
+        "platforms": {
+            "dart": {
+                "lib/firebase_options.dart": {
+                    "projectId": "watermarking-4a428",
+                    "configurations": {
+                        "web": "1:78940960204:web:a79807e595595c7d7cd969"
+                    }
+                }
+            }
+        }
+    },
+    "hosting": {
+        "public": "build/web",
+        "ignore": [
+            "firebase.json",
+            "**/.*",
+            "**/node_modules/**"
+        ],
+        "rewrites": [
+            {
+                "source": "**",
+                "destination": "/index.html"
+            }
+        ],
+        "predeploy": [
+            "flutter build web --release --source-maps"
+        ],
+        "headers": [
+            {
+                "source": "**",
+                "headers": [
+                    {
+                        "key": "Cross-Origin-Opener-Policy",
+                        "value": "same-origin-allow-popups"
+                    }
+                ]
+            }
+        ]
+    }
+}
