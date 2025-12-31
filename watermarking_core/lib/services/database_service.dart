@@ -318,19 +318,39 @@ class DatabaseService {
         .where('userId', isEqualTo: userId)
         .snapshots()
         .map<dynamic>((QuerySnapshot snapshot) {
-      final List<DetectionItem> list = snapshot.docs.map((doc) {
+      // Sort client-side to avoid requiring composite index
+      final sortedDocs = snapshot.docs.toList()
+        ..sort((a, b) {
+          final aData = a.data() as Map<String, dynamic>;
+          final bData = b.data() as Map<String, dynamic>;
+          final aTimestamp = aData['timestamp'];
+          final bTimestamp = bData['timestamp'];
+          if (aTimestamp == null && bTimestamp == null) return 0;
+          if (aTimestamp == null) return 1;
+          if (bTimestamp == null) return -1;
+          if (aTimestamp is Timestamp && bTimestamp is Timestamp) {
+            return bTimestamp.compareTo(aTimestamp);
+          }
+          return 0;
+        });
+      final List<DetectionItem> list = sortedDocs.map((doc) {
         final data = doc.data() as Map<String, dynamic>;
         return DetectionItem(
           id: doc.id,
           progress: data['progress']?.toString() ?? '',
           result: data['result']?.toString(),
+          confidence: (data['confidence'] is num)
+              ? (data['confidence'] as num).toDouble()
+              : null,
           extractedRef: data['extractedRef'] != null
               ? ExtractedImageReference(
                   remotePath: data['extractedRef']['remotePath']?.toString(),
+                  servingUrl: data['extractedRef']['servingUrl']?.toString(),
                 )
-              : (data['pathMarked'] != null
+              : (data['pathMarked'] != null || data['servingUrl'] != null
                   ? ExtractedImageReference(
                       remotePath: data['pathMarked']?.toString(),
+                      servingUrl: data['servingUrl']?.toString(),
                     )
                   : null),
         );

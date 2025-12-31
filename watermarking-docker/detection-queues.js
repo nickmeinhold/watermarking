@@ -148,17 +148,30 @@ module.exports = {
               console.log('Message detected and results saved to database.');
               console.log('Result added to detectionItems history.');
 
+              // Generate signed URL for the extracted image
+              let servingUrl = null;
+              if (data.pathMarked) {
+                try {
+                  servingUrl = await storageHelper.getSignedUrl(data.pathMarked);
+                  console.log('Generated serving URL for extracted image');
+                } catch (urlErr) {
+                  console.error('Failed to generate serving URL:', urlErr);
+                }
+              }
+
               // Add result to detectionItems collection for history
               await db.collection('detectionItems').add({
                 userId: data.userId,
                 originalImageId: data.originalImageId || null,
                 markedImageId: data.markedImageId || null,
                 result: resultsJson.message ? `Watermark Detected: ${resultsJson.message}` : 'Watermark Detected',
+                confidence: resultsJson.confidence || 0,
                 rawResult: resultsJson,
                 timestamp: new Date(),
                 progress: '100',
                 pathOriginal: data.pathOriginal,
-                pathMarked: data.pathMarked
+                pathMarked: data.pathMarked,
+                servingUrl: servingUrl
               });
 
               resolve();

@@ -134,12 +134,15 @@ int main(int argc, const char* argv[]) {
   }
 
   std::string messageStr = "No message found.";
+  double confidence = 0.0;
   // calculate the message from the shifts
   if (shifts.size() != 0) {
     messageStr = getASCII(shifts, p * p);
+    // Use minimum PSNR as confidence (weakest link in the chain)
+    confidence = *std::min_element(psnrs.begin(), psnrs.end());
   }
 
-  outputResultsFile(messageStr, outputFilePath);
+  outputResultsFile(messageStr, confidence, outputFilePath);
 
   return 0;
 }

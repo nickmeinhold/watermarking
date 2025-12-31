@@ -15,6 +15,7 @@ class DetectionItem {
     this.extractedRef,
     this.progress,
     this.result,
+    this.confidence,
     this.error,
   });
 
@@ -24,6 +25,7 @@ class DetectionItem {
   final ExtractedImageReference? extractedRef;
   final String? progress;
   final String? result;
+  final double? confidence;
   final String? error;
 
   DetectionItem copyWith({
@@ -33,6 +35,7 @@ class DetectionItem {
     ExtractedImageReference? extractedRef,
     String? progress,
     String? result,
+    double? confidence,
     String? error,
   }) {
     return DetectionItem(
@@ -42,6 +45,7 @@ class DetectionItem {
       extractedRef: extractedRef ?? this.extractedRef,
       progress: progress ?? this.progress,
       result: result ?? this.result,
+      confidence: confidence ?? this.confidence,
       error: error ?? this.error,
     );
   }
@@ -54,6 +58,7 @@ class DetectionItem {
         extractedRef,
         progress,
         result,
+        confidence,
         error,
       ]);
 
@@ -68,11 +73,12 @@ class DetectionItem {
           extractedRef == other.extractedRef &&
           progress == other.progress &&
           result == other.result &&
+          confidence == other.confidence &&
           error == other.error;
 
   @override
   String toString() {
-    return 'ImagesViewModel{id: $id, started: $started, originalRef: $originalRef, extractedRef: $extractedRef, progress: $progress, result: $result, error: $error}';
+    return 'ImagesViewModel{id: $id, started: $started, originalRef: $originalRef, extractedRef: $extractedRef, progress: $progress, result: $result, confidence: $confidence, error: $error}';
   }
 
   Map<String, dynamic> toJson() => <String, dynamic>{
@@ -82,6 +88,7 @@ class DetectionItem {
         'extractedRef': extractedRef,
         'progress': progress,
         'result': result,
+        'confidence': confidence,
         'error': error,
       };
 }
