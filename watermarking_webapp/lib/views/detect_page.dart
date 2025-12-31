@@ -86,17 +86,17 @@ class _DetectPageState extends State<DetectPage> {
                                             ElevatedButton.icon(
                                               onPressed: _pickFile,
                                               icon: const Icon(Icons.upload),
-                                              label:
-                                                  const Text('Select Image'),
+                                              label: const Text('Select Image'),
                                             ),
                                           ],
                                         ),
                                       ),
                               ),
                               const SizedBox(height: 16),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceEvenly,
+                              Wrap(
+                                alignment: WrapAlignment.spaceEvenly,
+                                spacing: 8.0,
+                                runSpacing: 8.0,
                                 children: [
                                   if (_selectedFile != null)
                                     TextButton(
@@ -208,13 +208,47 @@ class _DetectionHistoryItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasImage = item.extractedRef?.remotePath != null;
+    // If we have a remote path, we might need to resolve it locally if it's a storage path
+    // We can guess it's a storage path if it doesn't start with http
+    final remotePath = item.extractedRef?.remotePath;
+    final isStoragePath = remotePath != null && !remotePath.startsWith('http');
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
-        leading: hasImage
-            ? const Icon(Icons.image, size: 48)
+        leading: remotePath != null
+            ? ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: isStoragePath
+                    ? FutureBuilder<String>(
+                        future: StorageService().getDownloadUrl(remotePath!),
+                        builder: (context, snapshot) {
+                          if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+                            return Image.network(
+                              snapshot.data!,
+                              width: 48,
+                              height: 48,
+                              fit: BoxFit.cover,
+                            );
+                          }
+                          return const SizedBox(
+                            width: 48,
+                            height: 48,
+                            child: Center(
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2)),
+                          );
+                        },
+                      )
+                    : Image.network(
+                        remotePath,
+                        width: 48,
+                        height: 48,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                            const Icon(Icons.broken_image, size: 48),
+                      ),
+              )
             : const Icon(Icons.image_outlined, size: 48),
         title: Text(item.result ?? 'Processing...'),
         subtitle: Text(_getStatusText(item)),
@@ -233,17 +267,20 @@ class _DetectionHistoryItem extends StatelessWidget {
   }
 
   Widget _getStatusIcon(DetectionItem item) {
+    if (item.result != null) {
+      return const Icon(Icons.check_circle, color: Colors.green);
+    }
+
     final progress = item.progress;
-    if (progress == null || progress != '100') {
+    if (progress == null ||
+        (progress != '100' && progress != 'Detection complete.')) {
       return const SizedBox(
         width: 24,
         height: 24,
         child: CircularProgressIndicator(strokeWidth: 2),
       );
     }
-    if (item.result != null) {
-      return const Icon(Icons.check_circle, color: Colors.green);
-    }
-    return const Icon(Icons.hourglass_empty, color: Colors.grey);
+
+    return const Icon(Icons.check_circle, color: Colors.green);
   }
 }

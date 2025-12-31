@@ -64,7 +64,8 @@ class StorageService {
     uploadTasks[entryId] = uploadTask;
 
     // Convert the upload task events to actions
-    final progressStream = uploadTask.snapshotEvents.map<dynamic>((TaskSnapshot snapshot) {
+    final progressStream =
+        uploadTask.snapshotEvents.map<dynamic>((TaskSnapshot snapshot) {
       switch (snapshot.state) {
         case TaskState.running:
           return ActionSetUploadProgress(
@@ -95,15 +96,19 @@ class StorageService {
     });
 
     // Handle errors from the upload task
-    final errorStream = uploadTask.asStream().handleError((Object error) {
-      return ActionAddProblem(
-        problem: Problem(
-          type: ProblemType.imageUpload,
-          message: error.toString(),
-          info: <String, dynamic>{'itemId': entryId},
-        ),
-      );
-    }).where((_) => false).cast<dynamic>(); // Filter out successful completions
+    final errorStream = uploadTask
+        .asStream()
+        .handleError((Object error) {
+          return ActionAddProblem(
+            problem: Problem(
+              type: ProblemType.imageUpload,
+              message: error.toString(),
+              info: <String, dynamic>{'itemId': entryId},
+            ),
+          );
+        })
+        .where((_) => false)
+        .cast<dynamic>(); // Filter out successful completions
 
     return Rx.merge([progressStream, errorStream]);
   }
@@ -118,5 +123,13 @@ class StorageService {
 
   void resumeUpload(String entryId) {
     uploadTasks[entryId]?.resume();
+  }
+
+  Future<String> getDownloadUrl(String path) async {
+    try {
+      return await FirebaseStorage.instance.ref(path).getDownloadURL();
+    } catch (e) {
+      return '';
+    }
   }
 }

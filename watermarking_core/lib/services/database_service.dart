@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:watermarking_core/models/detection_item.dart';
+import 'package:watermarking_core/models/extracted_image_reference.dart';
 import 'package:watermarking_core/models/marked_image_reference.dart';
 import 'package:watermarking_core/models/original_image_reference.dart';
 import 'package:watermarking_core/redux/actions.dart';
@@ -291,6 +292,7 @@ class DatabaseService {
         progress: data?['progress']?.toString() ?? '',
         result: resultsMap?['message']?.toString(),
         error: data?['error']?.toString(),
+        pathMarked: data?['pathMarked']?.toString(),
       );
     });
   }
@@ -311,6 +313,15 @@ class DatabaseService {
           id: doc.id,
           progress: data['progress']?.toString() ?? '',
           result: data['result']?.toString(),
+          extractedRef: data['extractedRef'] != null
+              ? ExtractedImageReference(
+                  remotePath: data['extractedRef']['remotePath']?.toString(),
+                )
+              : (data['pathMarked'] != null
+                  ? ExtractedImageReference(
+                      remotePath: data['pathMarked']?.toString(),
+                    )
+                  : null),
         );
       }).toList();
 
@@ -338,7 +349,8 @@ class DatabaseService {
         developer.log('Error waking up backend: $e', name: 'DatabaseService');
       });
     } catch (e) {
-      developer.log('Error triggering backend wake-up: $e', name: 'DatabaseService');
+      developer.log('Error triggering backend wake-up: $e',
+          name: 'DatabaseService');
     }
   }
 }

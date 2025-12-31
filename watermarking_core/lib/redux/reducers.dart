@@ -25,7 +25,8 @@ final Reducer<AppState> appReducer =
   TypedReducer<AppState, ActionStartUpload>(_setUploadStartTime).call,
   TypedReducer<AppState, ActionSetUploadProgress>(_setUploadProgress).call,
   TypedReducer<AppState, ActionSetUploadSuccess>(_setUploadSucceeded).call,
-  TypedReducer<AppState, ActionSetDetectingProgress>(_setDetectingProgress).call,
+  TypedReducer<AppState, ActionSetDetectingProgress>(_setDetectingProgress)
+      .call,
   TypedReducer<AppState, ActionAddProblem>(_addProblem).call,
   TypedReducer<AppState, ActionRemoveProblem>(_removeProblem).call,
 ]);
@@ -204,6 +205,9 @@ AppState _setDetectingProgress(
       result: action.result,
       error: action.error,
       started: DateTime.now(),
+      extractedRef: action.pathMarked != null
+          ? ExtractedImageReference(remotePath: action.pathMarked)
+          : null,
     );
 
     return state.copyWith(
@@ -217,7 +221,11 @@ AppState _setDetectingProgress(
           ? item.copyWith(
               progress: action.progress,
               result: action.result,
-              error: action.error)
+              error: action.error,
+              extractedRef: action.pathMarked != null
+                  ? ExtractedImageReference(remotePath: action.pathMarked)
+                  : item.extractedRef,
+            )
           : item)
       .toList();
 

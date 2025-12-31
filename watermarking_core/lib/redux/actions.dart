@@ -168,16 +168,19 @@ class ActionSetDetectingProgress extends Action {
     required this.progress,
     this.result,
     this.error,
+    this.pathMarked,
   }) : super(<String, Object?>{
           'id': id,
           'progress': progress,
           'result': result,
           'error': error,
+          'pathMarked': pathMarked,
         });
   final String id;
   final String progress;
   final String? result;
   final String? error;
+  final String? pathMarked;
 }
 
 /// Action to upload an original image (works with bytes for web compatibility)
