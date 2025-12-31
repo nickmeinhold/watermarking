@@ -221,7 +221,7 @@ class _DetectionHistoryItem extends StatelessWidget {
                 borderRadius: BorderRadius.circular(4),
                 child: isStoragePath
                     ? FutureBuilder<String>(
-                        future: StorageService().getDownloadUrl(remotePath!),
+                        future: StorageService().getDownloadUrl(remotePath),
                         builder: (context, snapshot) {
                           if (snapshot.hasData && snapshot.data!.isNotEmpty) {
                             return Image.network(
