@@ -239,6 +239,17 @@ class DatabaseService {
     });
   }
 
+  Future<void> deleteDetectionItem(String detectionItemId) async {
+    await _db.collection('tasks').add({
+      'type': 'delete_detection_item',
+      'status': 'pending',
+      'userId': userId,
+      'detectionItemId': detectionItemId,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+    _wakeUpBackend();
+  }
+
   Future<void> addDetectingEntry({
     required String itemId,
     required String originalPath,

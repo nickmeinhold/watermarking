@@ -259,6 +259,12 @@ class ActionDeleteMarkedImage extends Action {
   final String markedImageId;
 }
 
+class ActionDeleteDetectionItem extends Action {
+  ActionDeleteDetectionItem({required this.detectionItemId})
+      : super(<String, Object>{'detectionItemId': detectionItemId});
+  final String detectionItemId;
+}
+
 class ActionDetectMarkedImage extends Action {
   ActionDetectMarkedImage({
     required this.markedImageId,

@@ -34,27 +34,45 @@ class DetectionHistoryListView extends StatelessWidget {
                       final originalUrl = item.originalRef?.url;
                       final localPath = item.extractedRef?.localPath;
                       final started = item.extractedRef?.upload?.started;
-                      return Center(
-                        child: Card(
-                          color: (item.result == null)
-                              ? Colors.blueGrey
-                              : Colors.white,
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: <Widget>[
-                              ListTile(
-                                leading: originalUrl != null
-                                    ? Image.network(originalUrl)
-                                    : const Icon(Icons.image),
-                                title: Text(item.result ?? ''),
-                                subtitle: Text(
-                                  started?.toIso8601String() ?? '',
+                      return Dismissible(
+                        key: Key(item.id ?? index.toString()),
+                        direction: DismissDirection.endToStart,
+                        background: Container(
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.only(right: 20),
+                          color: Colors.red,
+                          child: const Icon(Icons.delete, color: Colors.white),
+                        ),
+                        onDismissed: (direction) {
+                          if (item.id != null) {
+                            StoreProvider.of<AppState>(context).dispatch(
+                              ActionDeleteDetectionItem(
+                                  detectionItemId: item.id!),
+                            );
+                          }
+                        },
+                        child: Center(
+                          child: Card(
+                            color: (item.result == null)
+                                ? Colors.blueGrey
+                                : Colors.white,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: <Widget>[
+                                ListTile(
+                                  leading: originalUrl != null
+                                      ? Image.network(originalUrl)
+                                      : const Icon(Icons.image),
+                                  title: Text(item.result ?? ''),
+                                  subtitle: Text(
+                                    started?.toIso8601String() ?? '',
+                                  ),
+                                  trailing: localPath != null
+                                      ? Image.file(File(localPath))
+                                      : null,
                                 ),
-                                trailing: localPath != null
-                                    ? Image.file(File(localPath))
-                                    : null,
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       );

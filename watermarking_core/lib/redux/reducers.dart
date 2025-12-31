@@ -18,6 +18,7 @@ final Reducer<AppState> appReducer =
   TypedReducer<AppState, ActionSetOriginalImages>(_setOriginalImages).call,
   TypedReducer<AppState, ActionUpdateMarkedImages>(_updateMarkedImages).call,
   TypedReducer<AppState, ActionSetDetectionItems>(_setDetectionItems).call,
+  TypedReducer<AppState, ActionDeleteDetectionItem>(_deleteDetectionItem).call,
   TypedReducer<AppState, ActionSetBottomNav>(_setBottomNav).call,
   TypedReducer<AppState, ActionShowBottomSheet>(_setBottomSheet).call,
   TypedReducer<AppState, ActionSetSelectedImage>(_setSelectedImage).call,
@@ -122,6 +123,15 @@ AppState _setSelectedImage(AppState state, ActionSetSelectedImage action) {
 AppState _setDetectionItems(AppState state, ActionSetDetectionItems action) {
   return state.copyWith(
       detections: state.detections.copyWith(items: action.items));
+}
+
+AppState _deleteDetectionItem(
+    AppState state, ActionDeleteDetectionItem action) {
+  final List<DetectionItem> nextItems = state.detections.items
+      .where((item) => item.id != action.detectionItemId)
+      .toList();
+  return state.copyWith(
+      detections: state.detections.copyWith(items: nextItems));
 }
 
 AppState _addDetectionItem(AppState state, ActionAddDetectionItem action) {

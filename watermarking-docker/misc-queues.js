@@ -57,5 +57,36 @@ module.exports = {
 
     await markedDocRef.delete();
     console.log(`Deleted marked image document ${data.markedImageId}`);
+  },
+
+  /**
+   * Delete a detection item (file and database entry)
+   */
+  processDeleteDetectionItemTask: async function (data) {
+    console.log(`Processing delete request for detection item: ${data.detectionItemId}`);
+
+    const detectionDocRef = db.collection('detectionItems').doc(data.detectionItemId);
+    const detectionDoc = await detectionDocRef.get();
+
+    if (!detectionDoc.exists) {
+      console.log('Detection item document not found, maybe already deleted.');
+      return;
+    }
+
+    const detectionData = detectionDoc.data();
+    const gcsPath = detectionData.pathMarked; // Path to the detecting image in GCS
+
+    if (gcsPath) {
+      try {
+        await storageHelper.deleteFile(gcsPath);
+      } catch (e) {
+        console.error('Failed to delete file from storage, but proceeding to delete DB entry:', e);
+      }
+    } else {
+      console.log('No GCS path found in detection item document.');
+    }
+
+    await detectionDocRef.delete();
+    console.log(`Deleted detection item document ${data.detectionItemId}`);
   }
 };

@@ -42,6 +42,9 @@ List<Middleware<AppState>> createMiddlewares(
     TypedMiddleware<AppState, ActionDeleteMarkedImage>(
       _deleteMarkedImage(databaseService),
     ).call,
+    TypedMiddleware<AppState, ActionDeleteDetectionItem>(
+      _deleteDetectionItem(databaseService),
+    ).call,
     TypedMiddleware<AppState, ActionDetectMarkedImage>(
       _detectMarkedImage(databaseService),
     ).call,
@@ -303,6 +306,26 @@ void Function(Store<AppState> store, ActionDeleteMarkedImage action,
       store.dispatch(ActionAddProblem(
         problem: Problem(
           type: ProblemType.images,
+          message: error.toString(),
+          trace: trace,
+        ),
+      ));
+    }
+  };
+}
+
+void Function(Store<AppState> store, ActionDeleteDetectionItem action,
+    NextDispatcher next) _deleteDetectionItem(DatabaseService databaseService) {
+  return (Store<AppState> store, ActionDeleteDetectionItem action,
+      NextDispatcher next) async {
+    next(action);
+
+    try {
+      await databaseService.deleteDetectionItem(action.detectionItemId);
+    } catch (error, trace) {
+      store.dispatch(ActionAddProblem(
+        problem: Problem(
+          type: ProblemType.detection,
           message: error.toString(),
           trace: trace,
         ),

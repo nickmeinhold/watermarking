@@ -82,6 +82,9 @@ async function processTask(taskId, data) {
     case 'delete_marked_image':
       await miscTasks.processDeleteMarkedImageTask(data);
       break;
+    case 'delete_detection_item':
+      await miscTasks.processDeleteDetectionItemTask(data);
+      break;
     default:
       throw new Error(`Unknown task type: ${data.type}`);
   }
