@@ -36,14 +36,24 @@ Digital watermarking system for embedding and detecting invisible messages in im
 3. **App writes** a task to Cloud Firestore `tasks` collection
 4. **Docker backend** picks up the task, downloads images from GCS
 5. **C++ detect binary** extracts the hidden message using correlation analysis
-6. **Results** written back to Firestore, app displays the decoded message
+6. **Results** written back to Firestore with extended statistics
+7. **App displays** decoded message and 11 visualization charts
 
 ### Detection Data Structures
 
 **DetectionItem** (core model in `watermarking_core/lib/models/detection_item.dart`):
-- `id`, `started`, `progress`, `result`, `confidence`, `error`
-- `originalRef`: link to original image
+- `id`, `started`, `progress`, `result`, `confidence`, `error`, `detected`
+- `originalRef`: link to original watermarked image with `url` for serving
 - `extractedRef`: the captured/detected image with `localPath`, `remotePath`, `servingUrl`, upload progress
+- `statistics`: extended detection analytics (see below)
+
+**DetectionStatistics** (core model in `watermarking_core/lib/models/detection_stats.dart`):
+- `imageWidth`, `imageHeight`, `primeSize`, `threshold`
+- `timing`: breakdown of processing phases (imageLoad, extraction, correlation, total in ms)
+- `sequences`: per-sequence data (k, psnr, peakX, peakY, peakVal, rms, shift)
+- `psnrStats`: min, max, avg PSNR across all sequences
+- `correlationStats`: min, max, mean, stdDev of correlation matrix
+- `totalSequencesTested`, `sequencesAboveThreshold`
 
 ### Detailed Detection Flow
 
@@ -96,9 +106,28 @@ Digital watermarking system for embedding and detecting invisible messages in im
 | File | Purpose |
 |------|---------|
 | `watermarking_core/lib/redux/middleware.dart` | Orchestrates flow via `_performExtraction()`, `_processExtraction()`, `_startWatermarkDetection()` |
-| `watermarking_core/lib/services/database_service.dart` | `addDetectingEntry()` creates Firestore docs |
+| `watermarking_core/lib/services/database_service.dart` | `addDetectingEntry()` creates Firestore docs, parses extended stats |
 | `watermarking_core/lib/services/storage_service.dart` | Handles upload to `detecting-images/` |
+| `watermarking_core/lib/models/detection_stats.dart` | Extended statistics models |
 | `watermarking_mobile/ios/Runner/DetectionViewController.swift` | iOS rectangle detection UI |
+| `watermarking_mobile/lib/views/detection_detail_page.dart` | Visualization UI with 11 charts |
+| `watermarking-docker/watermarking-functions/Utilities.cpp` | `outputResultsFileExtended()` for stats JSON |
+
+### Detection Visualization
+
+The mobile app displays 11 visualization cards for each completed detection (`detection_detail_page.dart`):
+
+1. **Result Card** - Image thumbnail, decoded message, confidence badge
+2. **Signal Strength Gauge** - Circular gauge showing min PSNR as % of threshold
+3. **PSNR Bar Chart** - Per-sequence PSNR values with threshold line
+4. **Timing Pie Chart** - Breakdown of image load, extraction, correlation phases
+5. **Technical Details** - Image dimensions, prime size, correlation matrix stats
+6. **Peak Positions Scatter** - (X, Y) peak locations in frequency domain
+7. **PSNR Distribution Histogram** - Frequency distribution across bins
+8. **Peak Value vs RMS Scatter** - Signal quality visualization
+9. **Shift Values Line Chart** - Encoded message shifts per sequence
+10. **Message Decoding Card** - Decoded message, confidence grid, shift table
+11. **Image Comparison** - Side-by-side original vs captured image
 
 ### Firestore Collections
 
@@ -106,7 +135,7 @@ Digital watermarking system for embedding and detecting invisible messages in im
 |------------|---------|
 | `detecting/{userId}` | Status tracking for current detection |
 | `tasks/{taskId}` | Queue entry for backend processing |
-| `detectionItems/{itemId}` | Final detection results |
+| `detectionItems/{itemId}` | Final detection results with extended statistics |
 | `originalImages/{docId}` | Original uploaded images |
 | `markedImages/{docId}` | Watermarked image records |
 
@@ -219,4 +248,11 @@ All components connect to: `watermarking-4a428`
 
 ## Status
 
-Archived. iOS-first project with functional web and backend components.
+Active development. iOS-first project with functional web and backend components.
+
+### Recent Updates (Jan 2026)
+
+- **Extended Detection Statistics**: C++ detection now outputs comprehensive stats (timing, per-sequence PSNR, correlation matrix stats, peak positions)
+- **Visualization UI**: Mobile app displays 11 interactive charts for detection results using fl_chart
+- **Image Comparison**: Side-by-side view of original watermarked image vs captured image
+- **Swipe-to-Delete**: Detection history cards can be dismissed with swipe gesture

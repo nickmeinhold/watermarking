@@ -16,25 +16,14 @@ Flutter mobile app for watermark detection. Users capture images with suspected 
 ```
 lib/
 ├── main.dart                 # App entry point, store setup
-├── models/                   # Data models and view models
-│   ├── app_state.dart       # Root Redux state
-│   ├── detection_item.dart  # Detection task model
-│   ├── original_image_reference.dart
-│   ├── extracted_image_reference.dart
-│   └── *_view_model.dart    # View-specific state projections
-├── redux/                    # State management
-│   ├── actions.dart         # All Redux actions
-│   ├── reducers.dart        # State update logic
-│   ├── middleware.dart      # Side effects (auth, device, upload)
-│   ├── epics.dart          # Async action streams
-├── services/                 # External integrations
-│   ├── auth_service.dart    # Firebase Auth
-│   ├── database_service.dart # Firebase Realtime Database
-│   ├── storage_service.dart  # Firebase Storage uploads
-│   └── device_service.dart   # Platform channel to native code
+├── models/                   # Data models and view models (in watermarking_core)
+├── redux/                    # State management (in watermarking_core)
+├── services/                 # External integrations (in watermarking_core)
 ├── views/                    # UI components
 │   ├── app.dart             # Root widget with StoreProvider
-│   ├── home_page.dart       # Detection history list
+│   ├── home_page.dart       # Detection history list with stepper
+│   ├── detection_card.dart  # Swipeable detection card with thumbnail
+│   ├── detection_detail_page.dart # 11 visualization charts
 │   ├── signin_page.dart     # Google Sign-in UI
 │   └── select_image_*.dart  # Image selection UI
 └── utilities/                # Helper functions
@@ -146,6 +135,27 @@ ActionPerformExtraction
   -> ActionSetDetectionItems (from Firebase subscription)
 ```
 
+## Detection Visualization UI
+
+When a detection completes, tapping the detection card opens `detection_detail_page.dart` with 11 visualization cards:
+
+### Charts (using fl_chart package)
+1. **Result Card** - Image thumbnail, decoded message, confidence badge, detected/not detected chip
+2. **Signal Strength Gauge** - Circular progress showing min PSNR as percentage of threshold (6.0)
+3. **PSNR Bar Chart** - Per-sequence PSNR values, bars colored green (above) / red (below) threshold
+4. **Timing Pie Chart** - Processing time breakdown: image load, extraction, correlation phases
+5. **Technical Details** - Table showing image size, prime size, threshold, correlation matrix stats
+6. **Peak Positions Scatter** - (X, Y) correlation peak locations in frequency domain (0 to primeSize)
+7. **PSNR Distribution Histogram** - Frequency distribution of PSNR values across 10 bins
+8. **Peak Value vs RMS Scatter** - Signal quality: higher peak + lower RMS = stronger detection
+9. **Shift Values Line Chart** - Detected shifts per sequence (encodes the hidden message)
+10. **Message Decoding Card** - Decoded message display, confidence grid with tooltips, shift details table
+11. **Image Comparison** - Side-by-side original watermarked image vs captured/extracted image
+
+### Key UI Components
+- **DetectionCard** (`detection_card.dart`): Dismissible card with swipe-to-delete, image thumbnail, confidence indicator
+- **DetectionSteps** (`home_page.dart`): Stepper showing Upload → Setup → Detect progress with error display
+
 ## Android Implementation Status
 **Android is NOT implemented**. The MainActivity.kt is a basic Flutter stub with no native code. Rectangle detection, ARKit integration, and Metal shaders are iOS-only. To implement Android, you would need:
 - Replace ARKit with ARCore
@@ -187,13 +197,13 @@ flutter run -d <android-device>
 ## Dependencies
 
 ### Flutter Packages (pubspec.yaml)
-- **firebase_auth, firebase_database, firebase_storage**: Firebase integration
+- **firebase_core, firebase_auth, firebase_database, firebase_storage**: Firebase integration
 - **google_sign_in**: Google authentication
-- **flutter_redux**: Redux state container
-- **redux_epics**: Async action handling
+- **flutter_redux, redux, redux_epics**: Redux state management
 - **rxdart**: Reactive streams
 - **path_provider**: File system access
 - **flutter_svg**: SVG rendering
+- **fl_chart**: Charts for detection visualization (bar, pie, scatter, line)
 
 ### iOS Native (Podfile)
 - Standard Flutter pods + Firebase pods (auto-managed via .flutter-plugins)
