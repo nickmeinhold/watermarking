@@ -160,7 +160,11 @@ module.exports = {
               }
 
               // Add result to detectionItems collection for history
-              await db.collection('detectionItems').add({
+              // Use itemId from client if provided, otherwise auto-generate
+              const detectionRef = data.itemId
+                ? db.collection('detectionItems').doc(data.itemId)
+                : db.collection('detectionItems').doc();
+              await detectionRef.set({
                 userId: data.userId,
                 originalImageId: data.originalImageId || null,
                 markedImageId: data.markedImageId || null,

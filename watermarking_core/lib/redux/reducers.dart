@@ -121,8 +121,18 @@ AppState _setSelectedImage(AppState state, ActionSetSelectedImage action) {
 }
 
 AppState _setDetectionItems(AppState state, ActionSetDetectionItems action) {
+  // Merge Firestore items with any in-progress local items
+  // Keep local items that don't exist in Firestore yet (result == null)
+  final firestoreIds = action.items.map((item) => item.id).toSet();
+  final inProgressLocalItems = state.detections.items
+      .where((item) => item.result == null && !firestoreIds.contains(item.id))
+      .toList();
+
+  // Combine: Firestore items + in-progress local items not in Firestore
+  final mergedItems = [...inProgressLocalItems, ...action.items];
+
   return state.copyWith(
-      detections: state.detections.copyWith(items: action.items));
+      detections: state.detections.copyWith(items: mergedItems));
 }
 
 AppState _deleteDetectionItem(
@@ -225,16 +235,16 @@ AppState _setDetectingProgress(
             .copyWith(items: [newItem, ...state.detections.items]));
   }
 
-  // Update existing item
+  // Update existing item - preserve existing extractedRef fields (like upload)
   final List<DetectionItem> nextItems = state.detections.items
       .map<DetectionItem>((DetectionItem item) => (item.id == action.id)
           ? item.copyWith(
               progress: action.progress,
               result: action.result,
               error: action.error,
-              extractedRef: action.pathMarked != null
-                  ? ExtractedImageReference(remotePath: action.pathMarked)
-                  : item.extractedRef,
+              extractedRef: item.extractedRef?.copyWith(
+                remotePath: action.pathMarked ?? item.extractedRef?.remotePath,
+              ),
             )
           : item)
       .toList();

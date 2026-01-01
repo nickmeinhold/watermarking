@@ -270,6 +270,7 @@ class DatabaseService {
       'type': 'detect',
       'status': 'pending',
       'userId': userId,
+      'itemId': itemId,
       'pathOriginal': originalPath,
       'pathMarked': markedPath,
       'createdAt': FieldValue.serverTimestamp(),
