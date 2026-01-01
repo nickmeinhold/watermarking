@@ -355,6 +355,12 @@ class DatabaseService {
               : null,
           detected: data['detected'] as bool?,
           statistics: statistics,
+          originalRef: data['originalRef'] != null
+              ? OriginalImageReference(
+                  filePath: data['originalRef']['remotePath']?.toString(),
+                  url: data['originalRef']['servingUrl']?.toString(),
+                )
+              : null,
           extractedRef: data['extractedRef'] != null
               ? ExtractedImageReference(
                   remotePath: data['extractedRef']['remotePath']?.toString(),

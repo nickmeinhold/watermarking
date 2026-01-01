@@ -148,14 +148,25 @@ module.exports = {
               console.log('Message detected and results saved to database.');
               console.log('Result added to detectionItems history.');
 
-              // Generate signed URL for the extracted image
-              let servingUrl = null;
+              // Generate signed URLs for both images
+              let extractedServingUrl = null;
+              let originalServingUrl = null;
+
               if (data.pathMarked) {
                 try {
-                  servingUrl = await storageHelper.getSignedUrl(data.pathMarked);
+                  extractedServingUrl = await storageHelper.getSignedUrl(data.pathMarked);
                   console.log('Generated serving URL for extracted image');
                 } catch (urlErr) {
-                  console.error('Failed to generate serving URL:', urlErr);
+                  console.error('Failed to generate serving URL for extracted:', urlErr);
+                }
+              }
+
+              if (data.pathOriginal) {
+                try {
+                  originalServingUrl = await storageHelper.getSignedUrl(data.pathOriginal);
+                  console.log('Generated serving URL for original image');
+                } catch (urlErr) {
+                  console.error('Failed to generate serving URL for original:', urlErr);
                 }
               }
 
@@ -177,7 +188,15 @@ module.exports = {
                 progress: '100',
                 pathOriginal: data.pathOriginal,
                 pathMarked: data.pathMarked,
-                servingUrl: servingUrl,
+                servingUrl: extractedServingUrl,
+                originalRef: {
+                  remotePath: data.pathOriginal,
+                  servingUrl: originalServingUrl
+                },
+                extractedRef: {
+                  remotePath: data.pathMarked,
+                  servingUrl: extractedServingUrl
+                },
 
                 // Image properties
                 imageWidth: resultsJson.imageWidth || null,
