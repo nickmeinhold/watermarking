@@ -6,6 +6,7 @@ export 'models/app_state.dart';
 export 'models/bottom_nav_view_model.dart';
 export 'models/detection_item.dart';
 export 'models/detection_items_view_model.dart';
+export 'models/detection_stats.dart';
 export 'models/extracted_image_reference.dart';
 export 'models/file_upload.dart';
 export 'models/marked_image_reference.dart';

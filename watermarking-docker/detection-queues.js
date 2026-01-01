@@ -164,19 +164,48 @@ module.exports = {
               const detectionRef = data.itemId
                 ? db.collection('detectionItems').doc(data.itemId)
                 : db.collection('detectionItems').doc();
-              await detectionRef.set({
+
+              // Build detection item with extended statistics
+              const detectionItem = {
                 userId: data.userId,
                 originalImageId: data.originalImageId || null,
                 markedImageId: data.markedImageId || null,
                 result: resultsJson.message ? `Watermark Detected: ${resultsJson.message}` : 'Watermark Detected',
                 confidence: resultsJson.confidence || 0,
-                rawResult: resultsJson,
+                detected: resultsJson.detected || false,
                 timestamp: new Date(),
                 progress: '100',
                 pathOriginal: data.pathOriginal,
                 pathMarked: data.pathMarked,
-                servingUrl: servingUrl
-              });
+                servingUrl: servingUrl,
+
+                // Image properties
+                imageWidth: resultsJson.imageWidth || null,
+                imageHeight: resultsJson.imageHeight || null,
+                primeSize: resultsJson.primeSize || null,
+                threshold: resultsJson.threshold || 6.0,
+
+                // Timing breakdown (milliseconds)
+                timing: resultsJson.timing || null,
+
+                // Sequence statistics
+                totalSequencesTested: resultsJson.totalSequencesTested || 0,
+                sequencesAboveThreshold: resultsJson.sequencesAboveThreshold || 0,
+
+                // PSNR summary statistics
+                psnrStats: resultsJson.psnrStats || null,
+
+                // Per-sequence details (for charts/histograms)
+                sequences: resultsJson.sequences || [],
+
+                // Correlation matrix statistics
+                correlationStats: resultsJson.correlationStats || null,
+
+                // Store raw result for backward compatibility
+                rawResult: resultsJson
+              };
+
+              await detectionRef.set(detectionItem);
 
               resolve();
             } catch (err) {

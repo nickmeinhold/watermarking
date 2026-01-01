@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:watermarking_core/models/detection_item.dart';
+import 'package:watermarking_core/models/detection_stats.dart';
 import 'package:watermarking_core/models/extracted_image_reference.dart';
 import 'package:watermarking_core/models/marked_image_reference.dart';
 import 'package:watermarking_core/models/original_image_reference.dart';
@@ -336,6 +337,15 @@ class DatabaseService {
         });
       final List<DetectionItem> list = sortedDocs.map((doc) {
         final data = doc.data() as Map<String, dynamic>;
+
+        // Parse extended statistics if available
+        DetectionStatistics? statistics;
+        if (data['timing'] != null ||
+            data['sequences'] != null ||
+            data['psnrStats'] != null) {
+          statistics = DetectionStatistics.fromJson(data);
+        }
+
         return DetectionItem(
           id: doc.id,
           progress: data['progress']?.toString() ?? '',
@@ -343,6 +353,8 @@ class DatabaseService {
           confidence: (data['confidence'] is num)
               ? (data['confidence'] as num).toDouble()
               : null,
+          detected: data['detected'] as bool?,
+          statistics: statistics,
           extractedRef: data['extractedRef'] != null
               ? ExtractedImageReference(
                   remotePath: data['extractedRef']['remotePath']?.toString(),

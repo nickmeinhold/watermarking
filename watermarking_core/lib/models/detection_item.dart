@@ -1,3 +1,4 @@
+import 'package:watermarking_core/models/detection_stats.dart';
 import 'package:watermarking_core/models/extracted_image_reference.dart';
 import 'package:watermarking_core/models/original_image_reference.dart';
 import 'package:watermarking_core/utilities/hash_utilities.dart';
@@ -17,6 +18,8 @@ class DetectionItem {
     this.result,
     this.confidence,
     this.error,
+    this.detected,
+    this.statistics,
   });
 
   final String? id;
@@ -27,6 +30,8 @@ class DetectionItem {
   final String? result;
   final double? confidence;
   final String? error;
+  final bool? detected;
+  final DetectionStatistics? statistics;
 
   DetectionItem copyWith({
     String? id,
@@ -37,6 +42,8 @@ class DetectionItem {
     String? result,
     double? confidence,
     String? error,
+    bool? detected,
+    DetectionStatistics? statistics,
   }) {
     return DetectionItem(
       id: id ?? this.id,
@@ -47,6 +54,8 @@ class DetectionItem {
       result: result ?? this.result,
       confidence: confidence ?? this.confidence,
       error: error ?? this.error,
+      detected: detected ?? this.detected,
+      statistics: statistics ?? this.statistics,
     );
   }
 
@@ -60,6 +69,8 @@ class DetectionItem {
         result,
         confidence,
         error,
+        detected,
+        statistics,
       ]);
 
   @override
@@ -74,11 +85,13 @@ class DetectionItem {
           progress == other.progress &&
           result == other.result &&
           confidence == other.confidence &&
-          error == other.error;
+          error == other.error &&
+          detected == other.detected &&
+          statistics == other.statistics;
 
   @override
   String toString() {
-    return 'ImagesViewModel{id: $id, started: $started, originalRef: $originalRef, extractedRef: $extractedRef, progress: $progress, result: $result, confidence: $confidence, error: $error}';
+    return 'DetectionItem{id: $id, started: $started, result: $result, confidence: $confidence, detected: $detected}';
   }
 
   Map<String, dynamic> toJson() => <String, dynamic>{
@@ -90,5 +103,7 @@ class DetectionItem {
         'result': result,
         'confidence': confidence,
         'error': error,
+        'detected': detected,
+        'statistics': statistics?.toJson(),
       };
 }
