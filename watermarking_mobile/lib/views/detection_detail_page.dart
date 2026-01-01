@@ -50,6 +50,30 @@ class DetectionDetailPage extends StatelessWidget {
               // Peak positions scatter
               if (stats.sequences != null && stats.sequences!.isNotEmpty)
                 _PeakPositionsCard(stats: stats),
+              const SizedBox(height: 16),
+
+              // PSNR Distribution Histogram
+              if (stats.sequences != null && stats.sequences!.isNotEmpty)
+                _PsnrHistogramCard(stats: stats),
+              const SizedBox(height: 16),
+
+              // Peak Value vs RMS Scatter
+              if (stats.sequences != null && stats.sequences!.isNotEmpty)
+                _PeakVsRmsCard(stats: stats),
+              const SizedBox(height: 16),
+
+              // Shift Values Chart
+              if (stats.sequences != null && stats.sequences!.isNotEmpty)
+                _ShiftValuesCard(stats: stats),
+              const SizedBox(height: 16),
+
+              // Message Bit Visualization
+              if (stats.sequences != null && stats.sequences!.isNotEmpty)
+                _MessageBitsCard(stats: stats, message: item.result),
+              const SizedBox(height: 16),
+
+              // Side-by-side Image Comparison
+              _ImageComparisonCard(item: item),
             ] else
               const Card(
                 child: Padding(
@@ -724,6 +748,788 @@ class _PeakPositionsCard extends StatelessWidget {
                 const SizedBox(width: 4),
                 const Text('Below threshold', style: TextStyle(fontSize: 12)),
               ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PsnrHistogramCard extends StatelessWidget {
+  const _PsnrHistogramCard({required this.stats});
+  final DetectionStatistics stats;
+
+  @override
+  Widget build(BuildContext context) {
+    final sequences = stats.sequences!;
+    final threshold = stats.threshold ?? 6.0;
+
+    // Create histogram bins
+    final psnrValues = sequences.map((s) => s.psnr).toList();
+    final minPsnr = psnrValues.reduce(math.min);
+    final maxPsnr = psnrValues.reduce(math.max);
+    final range = maxPsnr - minPsnr;
+    const numBins = 10;
+    final binWidth = range > 0 ? range / numBins : 1.0;
+
+    // Count values in each bin
+    final bins = List<int>.filled(numBins, 0);
+    for (final psnr in psnrValues) {
+      int binIndex = range > 0 ? ((psnr - minPsnr) / binWidth).floor() : 0;
+      binIndex = binIndex.clamp(0, numBins - 1);
+      bins[binIndex]++;
+    }
+
+    final maxCount = bins.reduce(math.max);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.equalizer, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  'PSNR Distribution',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Frequency distribution of PSNR values across sequences',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 180,
+              child: BarChart(
+                BarChartData(
+                  alignment: BarChartAlignment.spaceAround,
+                  maxY: maxCount.toDouble() * 1.2,
+                  barGroups: bins.asMap().entries.map((entry) {
+                    final binStart = minPsnr + entry.key * binWidth;
+                    final binEnd = binStart + binWidth;
+                    final isThresholdBin =
+                        threshold >= binStart && threshold < binEnd;
+                    return BarChartGroupData(
+                      x: entry.key,
+                      barRods: [
+                        BarChartRodData(
+                          toY: entry.value.toDouble(),
+                          color: isThresholdBin
+                              ? Colors.orange
+                              : Colors.blue.shade400,
+                          width: 24,
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(4),
+                          ),
+                        ),
+                      ],
+                    );
+                  }).toList(),
+                  titlesData: FlTitlesData(
+                    leftTitles: AxisTitles(
+                      axisNameWidget:
+                          const Text('Count', style: TextStyle(fontSize: 10)),
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 30,
+                        getTitlesWidget: (value, meta) {
+                          return Text(
+                            value.toInt().toString(),
+                            style: const TextStyle(fontSize: 10),
+                          );
+                        },
+                      ),
+                    ),
+                    bottomTitles: AxisTitles(
+                      axisNameWidget:
+                          const Text('PSNR', style: TextStyle(fontSize: 10)),
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        getTitlesWidget: (value, meta) {
+                          final idx = value.toInt();
+                          if (idx == 0 || idx == numBins - 1) {
+                            final binValue = minPsnr + idx * binWidth;
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(
+                                binValue.toStringAsFixed(1),
+                                style: const TextStyle(fontSize: 9),
+                              ),
+                            );
+                          }
+                          return const Text('');
+                        },
+                      ),
+                    ),
+                    topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                  ),
+                  gridData: const FlGridData(show: true),
+                  borderData: FlBorderData(show: false),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(width: 12, height: 12, color: Colors.orange),
+                const SizedBox(width: 4),
+                const Text('Contains threshold', style: TextStyle(fontSize: 12)),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PeakVsRmsCard extends StatelessWidget {
+  const _PeakVsRmsCard({required this.stats});
+  final DetectionStatistics stats;
+
+  @override
+  Widget build(BuildContext context) {
+    final sequences = stats.sequences!;
+    final threshold = stats.threshold ?? 6.0;
+
+    final rmsValues = sequences.map((s) => s.rms).toList();
+    final peakValues = sequences.map((s) => s.peakVal).toList();
+
+    final minRms = rmsValues.reduce(math.min);
+    final maxRms = rmsValues.reduce(math.max);
+    final minPeak = peakValues.reduce(math.min);
+    final maxPeak = peakValues.reduce(math.max);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.bubble_chart, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  'Peak Value vs RMS',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Signal quality: higher peak with lower RMS = stronger detection',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 200,
+              child: ScatterChart(
+                ScatterChartData(
+                  minX: minRms * 0.9,
+                  maxX: maxRms * 1.1,
+                  minY: minPeak * 0.9,
+                  maxY: maxPeak * 1.1,
+                  scatterSpots: sequences.map((seq) {
+                    final isAboveThreshold = seq.psnr > threshold;
+                    return ScatterSpot(
+                      seq.rms,
+                      seq.peakVal,
+                      dotPainter: FlDotCirclePainter(
+                        radius: 6,
+                        color: isAboveThreshold
+                            ? Colors.green.withValues(alpha: 0.7)
+                            : Colors.red.withValues(alpha: 0.7),
+                        strokeWidth: 1,
+                        strokeColor: isAboveThreshold ? Colors.green : Colors.red,
+                      ),
+                    );
+                  }).toList(),
+                  titlesData: FlTitlesData(
+                    leftTitles: AxisTitles(
+                      axisNameWidget: const Text('Peak Value',
+                          style: TextStyle(fontSize: 10)),
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 50,
+                        getTitlesWidget: (value, meta) {
+                          return Text(
+                            value.toStringAsExponential(1),
+                            style: const TextStyle(fontSize: 8),
+                          );
+                        },
+                      ),
+                    ),
+                    bottomTitles: AxisTitles(
+                      axisNameWidget:
+                          const Text('RMS', style: TextStyle(fontSize: 10)),
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        getTitlesWidget: (value, meta) {
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              value.toStringAsExponential(1),
+                              style: const TextStyle(fontSize: 8),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                  ),
+                  gridData: const FlGridData(show: true),
+                  borderData: FlBorderData(
+                    show: true,
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 12,
+                  height: 12,
+                  decoration: const BoxDecoration(
+                    color: Colors.green,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                const Text('Above threshold', style: TextStyle(fontSize: 12)),
+                const SizedBox(width: 16),
+                Container(
+                  width: 12,
+                  height: 12,
+                  decoration: const BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                const Text('Below threshold', style: TextStyle(fontSize: 12)),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ShiftValuesCard extends StatelessWidget {
+  const _ShiftValuesCard({required this.stats});
+  final DetectionStatistics stats;
+
+  @override
+  Widget build(BuildContext context) {
+    final sequences = stats.sequences!;
+    final threshold = stats.threshold ?? 6.0;
+    final primeSize = stats.primeSize ?? 509;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.linear_scale, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  'Shift Values',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Detected shifts encode the hidden message (shift = y × p + x)',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 180,
+              child: LineChart(
+                LineChartData(
+                  minY: 0,
+                  maxY: (primeSize * primeSize).toDouble(),
+                  lineBarsData: [
+                    LineChartBarData(
+                      spots: sequences.asMap().entries.map((entry) {
+                        return FlSpot(
+                          entry.key.toDouble(),
+                          entry.value.shift.toDouble(),
+                        );
+                      }).toList(),
+                      isCurved: false,
+                      color: Colors.purple,
+                      barWidth: 2,
+                      dotData: FlDotData(
+                        show: true,
+                        getDotPainter: (spot, percent, barData, index) {
+                          final isAbove = sequences[index].psnr > threshold;
+                          return FlDotCirclePainter(
+                            radius: 4,
+                            color: isAbove ? Colors.green : Colors.red,
+                            strokeWidth: 1,
+                            strokeColor: Colors.white,
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                  titlesData: FlTitlesData(
+                    leftTitles: AxisTitles(
+                      axisNameWidget:
+                          const Text('Shift', style: TextStyle(fontSize: 10)),
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 50,
+                        getTitlesWidget: (value, meta) {
+                          return Text(
+                            value.toInt().toString(),
+                            style: const TextStyle(fontSize: 9),
+                          );
+                        },
+                      ),
+                    ),
+                    bottomTitles: AxisTitles(
+                      axisNameWidget: const Text('Sequence',
+                          style: TextStyle(fontSize: 10)),
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        getTitlesWidget: (value, meta) {
+                          final idx = value.toInt();
+                          if (idx >= 0 && idx < sequences.length) {
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(
+                                'k${sequences[idx].k}',
+                                style: const TextStyle(fontSize: 9),
+                              ),
+                            );
+                          }
+                          return const Text('');
+                        },
+                      ),
+                    ),
+                    topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                  ),
+                  gridData: const FlGridData(show: true),
+                  borderData: FlBorderData(show: false),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MessageBitsCard extends StatelessWidget {
+  const _MessageBitsCard({required this.stats, this.message});
+  final DetectionStatistics stats;
+  final String? message;
+
+  @override
+  Widget build(BuildContext context) {
+    final sequences = stats.sequences!;
+    final threshold = stats.threshold ?? 6.0;
+    final primeSize = stats.primeSize ?? 509;
+
+    // Extract the actual message from result (remove "Watermark Detected: " prefix)
+    String? decodedMessage;
+    if (message != null && message!.contains(':')) {
+      decodedMessage = message!.split(':').last.trim();
+    }
+
+    // Group sequences by bytes (8 bits each, assuming 8 sequences per character)
+    // This is an approximation - actual encoding may vary
+    final bitsPerChar = 8;
+    final numChars = (sequences.length / bitsPerChar).floor();
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.text_fields, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  'Message Decoding',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'How shift values map to the decoded message',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 16),
+            if (decodedMessage != null && decodedMessage.isNotEmpty)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.green.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.check_circle, color: Colors.green.shade700),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Decoded Message',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.green.shade700,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            decodedMessage,
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green.shade900,
+                              fontFamily: 'monospace',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            const SizedBox(height: 16),
+            // Bit visualization grid
+            Text(
+              'Sequence Confidence Grid',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 4,
+              runSpacing: 4,
+              children: sequences.asMap().entries.map((entry) {
+                final seq = entry.value;
+                final isAbove = seq.psnr > threshold;
+                final intensity = (seq.psnr / 20).clamp(0.0, 1.0);
+                return Tooltip(
+                  message: 'k=${seq.k}\nPSNR: ${seq.psnr.toStringAsFixed(2)}\n'
+                      'Shift: ${seq.shift}',
+                  child: Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: isAbove
+                          ? Colors.green.withValues(alpha: 0.3 + intensity * 0.7)
+                          : Colors.red.withValues(alpha: 0.3 + intensity * 0.7),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(
+                        color: isAbove ? Colors.green : Colors.red,
+                        width: 1,
+                      ),
+                    ),
+                    child: Center(
+                      child: Text(
+                        '${seq.k}',
+                        style: TextStyle(
+                          fontSize: 9,
+                          color: isAbove
+                              ? Colors.green.shade900
+                              : Colors.red.shade900,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                _LegendItem(
+                  color: Colors.green,
+                  label: 'Strong signal',
+                ),
+                const SizedBox(width: 16),
+                _LegendItem(
+                  color: Colors.red,
+                  label: 'Weak signal',
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            // Shift value table for first few sequences
+            Text(
+              'Shift Details (first ${math.min(8, sequences.length)} sequences)',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Table(
+              columnWidths: const {
+                0: FlexColumnWidth(1),
+                1: FlexColumnWidth(2),
+                2: FlexColumnWidth(2),
+                3: FlexColumnWidth(1.5),
+              },
+              border: TableBorder.all(color: Colors.grey.shade300),
+              children: [
+                TableRow(
+                  decoration: BoxDecoration(color: Colors.grey.shade100),
+                  children: const [
+                    Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Text('k', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                    ),
+                    Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Text('Shift', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                    ),
+                    Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Text('PSNR', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                    ),
+                    Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Text('Valid', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                    ),
+                  ],
+                ),
+                ...sequences.take(8).map((seq) {
+                  final isAbove = seq.psnr > threshold;
+                  return TableRow(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Text('${seq.k}', style: const TextStyle(fontSize: 11)),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Text('${seq.shift}', style: const TextStyle(fontSize: 11, fontFamily: 'monospace')),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Text(seq.psnr.toStringAsFixed(2), style: const TextStyle(fontSize: 11)),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Icon(
+                          isAbove ? Icons.check : Icons.close,
+                          size: 16,
+                          color: isAbove ? Colors.green : Colors.red,
+                        ),
+                      ),
+                    ],
+                  );
+                }),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LegendItem extends StatelessWidget {
+  const _LegendItem({required this.color, required this.label});
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 16,
+          height: 16,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: color),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(label, style: const TextStyle(fontSize: 12)),
+      ],
+    );
+  }
+}
+
+class _ImageComparisonCard extends StatelessWidget {
+  const _ImageComparisonCard({required this.item});
+  final DetectionItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final localPath = item.extractedRef?.localPath;
+    final servingUrl = item.extractedRef?.servingUrl;
+    final originalUrl = item.originalRef?.url;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.compare, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  'Image Comparison',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Original watermarked image vs captured/extracted image',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                // Original image
+                Expanded(
+                  child: Column(
+                    children: [
+                      Text(
+                        'Original',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                      const SizedBox(height: 8),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: AspectRatio(
+                          aspectRatio: 1,
+                          child: originalUrl != null
+                              ? Image.network(
+                                  originalUrl,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => _placeholder('No original'),
+                                )
+                              : _placeholder('No original'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                const Icon(Icons.arrow_forward, color: Colors.grey),
+                const SizedBox(width: 16),
+                // Extracted image
+                Expanded(
+                  child: Column(
+                    children: [
+                      Text(
+                        'Captured',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                      const SizedBox(height: 8),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: AspectRatio(
+                          aspectRatio: 1,
+                          child: localPath != null
+                              ? Image.file(
+                                  File(localPath),
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) =>
+                                      servingUrl != null
+                                          ? Image.network(
+                                              servingUrl,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (_, __, ___) =>
+                                                  _placeholder('No capture'),
+                                            )
+                                          : _placeholder('No capture'),
+                                )
+                              : servingUrl != null
+                                  ? Image.network(
+                                      servingUrl,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) =>
+                                          _placeholder('No capture'),
+                                    )
+                                  : _placeholder('No capture'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _placeholder(String text) {
+    return Container(
+      color: Colors.grey.shade200,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.image, size: 40, color: Colors.grey.shade400),
+            const SizedBox(height: 4),
+            Text(
+              text,
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey.shade600,
+              ),
             ),
           ],
         ),
