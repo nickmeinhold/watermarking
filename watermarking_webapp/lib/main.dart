@@ -141,12 +141,27 @@ class AppShell extends StatelessWidget {
             builder: (context, user) {
               if (user.photoUrl != null) {
                 return Padding(
-                  padding: const EdgeInsets.only(right: 16.0),
-                  child: GestureDetector(
-                    onTap: () {
-                      StoreProvider.of<AppState>(context)
-                          .dispatch(ActionSignout());
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: PopupMenuButton<String>(
+                    offset: const Offset(0, 48),
+                    onSelected: (value) {
+                      if (value == 'signout') {
+                        StoreProvider.of<AppState>(context)
+                            .dispatch(ActionSignout());
+                      }
                     },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem<String>(
+                        value: 'signout',
+                        child: Row(
+                          children: [
+                            Icon(Icons.logout),
+                            SizedBox(width: 8),
+                            Text('Sign out'),
+                          ],
+                        ),
+                      ),
+                    ],
                     child: CircleAvatar(
                       backgroundImage: NetworkImage(user.photoUrl!),
                     ),

@@ -30,3 +30,6 @@ export 'services/storage_service.dart';
 // Utilities
 export 'utilities/hash_utilities.dart';
 export 'utilities/string_utilities.dart';
+
+// Widgets
+export 'widgets/detection_stats_widgets.dart';

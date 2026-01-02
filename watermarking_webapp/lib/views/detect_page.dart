@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_redux/flutter_redux.dart';
 import 'package:redux/redux.dart';
 import 'package:watermarking_core/watermarking_core.dart';
+import 'package:watermarking_webapp/views/detection_detail_dialog.dart';
 
 class DetectPage extends StatefulWidget {
   const DetectPage({super.key});
@@ -216,6 +217,7 @@ class _DetectionHistoryItem extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
+        onTap: () => DetectionDetailDialog.show(context, item),
         leading: remotePath != null
             ? ClipRRect(
                 borderRadius: BorderRadius.circular(4),
@@ -252,7 +254,14 @@ class _DetectionHistoryItem extends StatelessWidget {
             : const Icon(Icons.image_outlined, size: 48),
         title: Text(item.result ?? 'Processing...'),
         subtitle: Text(_getStatusText(item)),
-        trailing: _getStatusIcon(item),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _getStatusIcon(item),
+            const SizedBox(width: 8),
+            const Icon(Icons.chevron_right),
+          ],
+        ),
       ),
     );
   }
