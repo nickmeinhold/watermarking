@@ -24,6 +24,7 @@ Digital watermarking system for embedding and detecting invisible messages in im
 
 | Directory | Purpose | Tech Stack |
 |-----------|---------|------------|
+| `watermarking_core/` | Shared Flutter package - models, Redux state, services, visualization widgets | Flutter, Redux, Firebase, fl_chart |
 | `watermarking_mobile/` | Mobile app - captures images, detects rectangles (iOS only), uploads for processing | Flutter, ARKit, Vision Framework, Metal |
 | `watermarking_webapp/` | Web interface - upload originals, view marked images, trigger detection | Flutter Web, Firebase, Material 3 |
 | `watermarking-docker/` | Backend - queue-based processing, runs C++ mark/detect binaries | Node.js, Docker, Firebase Queue |
@@ -109,25 +110,33 @@ Digital watermarking system for embedding and detecting invisible messages in im
 | `watermarking_core/lib/services/database_service.dart` | `addDetectingEntry()` creates Firestore docs, parses extended stats |
 | `watermarking_core/lib/services/storage_service.dart` | Handles upload to `detecting-images/` |
 | `watermarking_core/lib/models/detection_stats.dart` | Extended statistics models |
+| `watermarking_core/lib/widgets/detection_stats_widgets.dart` | Shared visualization widgets (11 chart cards) |
 | `watermarking_mobile/ios/Runner/DetectionViewController.swift` | iOS rectangle detection UI |
-| `watermarking_mobile/lib/views/detection_detail_page.dart` | Visualization UI with 11 charts |
+| `watermarking_mobile/lib/views/detection_detail_page.dart` | Mobile detection detail page (uses shared widgets) |
+| `watermarking_webapp/lib/views/detection_detail_dialog.dart` | Web detection detail dialog (uses shared widgets) |
 | `watermarking-docker/watermarking-functions/Utilities.cpp` | `outputResultsFileExtended()` for stats JSON |
 
 ### Detection Visualization
 
-The mobile app displays 11 visualization cards for each completed detection (`detection_detail_page.dart`):
+Both mobile and web apps display 11 visualization cards for detection results using shared widgets from `watermarking_core/lib/widgets/detection_stats_widgets.dart`:
 
-1. **Result Card** - Image thumbnail, decoded message, confidence badge
-2. **Signal Strength Gauge** - Circular gauge showing min PSNR as % of threshold
-3. **PSNR Bar Chart** - Per-sequence PSNR values with threshold line
-4. **Timing Pie Chart** - Breakdown of image load, extraction, correlation phases
-5. **Technical Details** - Image dimensions, prime size, correlation matrix stats
-6. **Peak Positions Scatter** - (X, Y) peak locations in frequency domain
-7. **PSNR Distribution Histogram** - Frequency distribution across bins
-8. **Peak Value vs RMS Scatter** - Signal quality visualization
-9. **Shift Values Line Chart** - Encoded message shifts per sequence
-10. **Message Decoding Card** - Decoded message, confidence grid, shift table
-11. **Image Comparison** - Side-by-side original vs captured image
+| Widget | Purpose |
+|--------|---------|
+| `DetectionResultCard` | Image thumbnail, decoded message, confidence badge |
+| `SignalStrengthCard` | Circular gauge showing min PSNR as % of threshold |
+| `PsnrChartCard` | Bar chart of per-sequence PSNR values with threshold line |
+| `TimingCard` | Pie chart breakdown of image load, extraction, correlation phases |
+| `TechnicalDetailsCard` | Image dimensions, prime size, correlation matrix stats |
+| `PeakPositionsCard` | Scatter plot of (X, Y) peak locations in frequency domain |
+| `PsnrHistogramCard` | Histogram of PSNR frequency distribution across bins |
+| `PeakVsRmsCard` | Scatter plot of peak value vs RMS for signal quality |
+| `ShiftValuesCard` | Line chart of encoded message shifts per sequence |
+| `MessageBitsCard` | Decoded message, confidence grid, shift table |
+| `ImageComparisonCard` | Side-by-side original vs captured image |
+
+Platform-specific image handling:
+- Mobile (`detection_detail_page.dart`): Uses `Image.file()` for local paths
+- Web (`detection_detail_dialog.dart`): Uses `Image.network()` with responsive two-column layout
 
 ### Firestore Collections
 
@@ -233,6 +242,44 @@ The `progress` field provides real-time feedback:
 | `original-images/{userId}/{fileName}` | Original uploaded images |
 | `marked-images/{userId}/{timestamp}/{fileName}.png` | Processed watermarked images |
 
+## Shared Core Package
+
+`watermarking_core/` is a Flutter package shared between mobile and web apps.
+
+```
+watermarking_core/
+├── lib/
+│   ├── models/           # Data models
+│   │   ├── app_state.dart
+│   │   ├── detection_item.dart
+│   │   ├── detection_stats.dart
+│   │   ├── extracted_image_reference.dart
+│   │   ├── marked_image_reference.dart
+│   │   ├── original_image_reference.dart
+│   │   └── user_model.dart
+│   ├── redux/            # State management
+│   │   ├── actions.dart
+│   │   ├── epics.dart
+│   │   ├── middleware.dart
+│   │   └── reducers.dart
+│   ├── services/         # Firebase wrappers
+│   │   ├── auth_service.dart
+│   │   ├── database_service.dart
+│   │   ├── device_service.dart  # Abstract interface
+│   │   └── storage_service.dart
+│   ├── widgets/          # Shared UI components
+│   │   └── detection_stats_widgets.dart  # 11 visualization cards
+│   ├── utilities/
+│   │   ├── hash_utilities.dart
+│   │   └── string_utilities.dart
+│   └── watermarking_core.dart  # Barrel file exports
+└── pubspec.yaml          # Dependencies: flutter, firebase, redux, fl_chart
+```
+
+Each app provides its own `DeviceService` implementation:
+- Mobile: `MobileDeviceService` (camera, file system, ARKit)
+- Web: `WebDeviceService` (file picker)
+
 ## Build Notes
 
 - **watermarking-docker** builds `watermarking-functions` from the sibling directory (managed via Docker build context context).
@@ -252,7 +299,9 @@ Active development. iOS-first project with functional web and backend components
 
 ### Recent Updates (Jan 2026)
 
+- **Shared Visualization Widgets**: Detection statistics charts moved to `watermarking_core` for reuse across mobile and web
+- **Web Detection Details**: Click detection history items to view full statistics in a dialog with responsive two-column layout
 - **Extended Detection Statistics**: C++ detection now outputs comprehensive stats (timing, per-sequence PSNR, correlation matrix stats, peak positions)
-- **Visualization UI**: Mobile app displays 11 interactive charts for detection results using fl_chart
+- **Visualization UI**: Both mobile and web apps display 11 interactive charts for detection results using fl_chart
 - **Image Comparison**: Side-by-side view of original watermarked image vs captured image
-- **Swipe-to-Delete**: Detection history cards can be dismissed with swipe gesture
+- **Swipe-to-Delete**: Detection history cards can be dismissed with swipe gesture (mobile)
