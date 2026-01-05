@@ -1,5 +1,5 @@
-# iOS 13.0 minimum required by Flutter SDK
-platform :ios, '13.0'
+# iOS 15.0 minimum required by Firebase SDK 12.x
+platform :ios, '15.0'
 
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
