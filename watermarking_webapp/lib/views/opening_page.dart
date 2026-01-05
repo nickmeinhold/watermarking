@@ -1,6 +1,6 @@
 import 'dart:convert';
-import 'dart:html' as html;
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:web/web.dart' as web;
 import 'package:flutter/material.dart';
 import 'package:flutter_redux/flutter_redux.dart';
 import 'package:http/http.dart' as http;
@@ -38,13 +38,12 @@ class _OpeningPageState extends State<OpeningPage> {
 
   /// Check if we're returning from Discord OAuth with a code
   Future<void> _checkForDiscordCallback() async {
-    final uri = Uri.parse(html.window.location.href);
+    final uri = Uri.parse(web.window.location.href);
     final code = uri.queryParameters['code'];
-    final state = uri.queryParameters['state'];
 
     if (code != null) {
       // Clear the URL parameters
-      html.window.history.replaceState(null, '', uri.path);
+      web.window.history.replaceState(null, '', uri.path);
 
       // Exchange code for Firebase custom token
       await _exchangeDiscordCode(code);
@@ -104,7 +103,7 @@ class _OpeningPageState extends State<OpeningPage> {
       'scope': 'identify',
     });
 
-    html.window.location.href = discordUrl.toString();
+    web.window.location.href = discordUrl.toString();
   }
 
   Future<void> _signInWithGoogle() async {

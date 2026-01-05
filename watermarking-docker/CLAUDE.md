@@ -96,4 +96,10 @@ The batching optimization is mathematically equivalent (addition is linear in fr
 - [ ] **Optimize marking performance** (discuss with Andrew Tirkel)
 - [ ] Test detection flow
 - [ ] Add retry logic for failed tasks
-- [ ] Clean up old Dockerfile variants (Dockerfile, Dockerfile1, Dockerfile2)
+
+## Dockerfile Strategy
+
+Three Dockerfiles for different use cases:
+- `Dockerfile` - Standalone full build (good for fresh deploys)
+- `Dockerfile.base` - Base image with compiled C++ binaries (slow build, rarely changes)
+- `Dockerfile.cloudrun` - Inherits from base, adds JS (fast build for code changes)
