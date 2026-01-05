@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_redux/flutter_redux.dart';
@@ -12,62 +13,130 @@ class SigninPage extends StatefulWidget {
 }
 
 class _SigninPageState extends State<SigninPage> {
-  Stream<String>? _stream;
+  bool _isSigningIn = false;
+  String? _statusMessage;
+  String? _errorMessage;
+  StreamSubscription<GoogleSignInAuthenticationEvent>? _authSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeGoogleSignIn();
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _initializeGoogleSignIn() async {
+    final signIn = GoogleSignIn.instance;
+
+    // Initialize without parameters - iOS uses GIDClientID from Info.plist
+    await signIn.initialize();
+
+    // Listen to authentication events
+    _authSubscription = signIn.authenticationEvents.listen(
+      _handleAuthenticationEvent,
+      onError: _handleAuthenticationError,
+    );
+
+    // Attempt lightweight (silent) authentication
+    signIn.attemptLightweightAuthentication();
+  }
+
+  void _handleAuthenticationEvent(GoogleSignInAuthenticationEvent event) async {
+    switch (event) {
+      case GoogleSignInAuthenticationEventSignIn(:final user):
+        await _signInToFirebase(user);
+      case GoogleSignInAuthenticationEventSignOut():
+        setState(() {
+          _statusMessage = null;
+          _isSigningIn = false;
+        });
+    }
+  }
+
+  void _handleAuthenticationError(Object error) {
+    setState(() {
+      _errorMessage = error.toString();
+      _isSigningIn = false;
+    });
+  }
+
+  Future<void> _signInToFirebase(GoogleSignInAccount user) async {
+    setState(() {
+      _statusMessage = 'Got Google user, signing into Firebase...';
+    });
+
+    try {
+      // Get client authorization with access token
+      final clientAuth = await user.authorizationClient.authorizeScopes([]);
+
+      // Create Firebase credential with access token
+      // Firebase Auth can work with just accessToken for Google Sign-In
+      final credential = GoogleAuthProvider.credential(
+        accessToken: clientAuth.accessToken,
+      );
+
+      final userCredential =
+          await FirebaseAuth.instance.signInWithCredential(credential);
+
+      if (mounted) {
+        StoreProvider.of<AppState>(context).dispatch(const ActionSignin());
+        setState(() {
+          _statusMessage = 'Signed in: ${userCredential.user?.displayName}';
+          _isSigningIn = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString();
+        _isSigningIn = false;
+      });
+    }
+  }
+
+  Future<void> _signInWithGoogle() async {
+    setState(() {
+      _isSigningIn = true;
+      _errorMessage = null;
+      _statusMessage = 'Starting Google Sign-In...';
+    });
+
+    try {
+      if (!GoogleSignIn.instance.supportsAuthenticate()) {
+        throw Exception('Google Sign-In not supported on this platform');
+      }
+      await GoogleSignIn.instance.authenticate();
+    } on GoogleSignInException catch (e) {
+      if (e.code == GoogleSignInExceptionCode.canceled) {
+        setState(() {
+          _statusMessage = 'Sign in cancelled';
+          _isSigningIn = false;
+        });
+      } else {
+        setState(() {
+          _errorMessage = e.toString();
+          _isSigningIn = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString();
+        _isSigningIn = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      home: StreamBuilder<String>(
-          stream: _stream,
-          builder: (BuildContext context, AsyncSnapshot<String> snapshot) {
-            if (snapshot.hasError) {
-              return Center(child: Text('Error: ${snapshot.error}'));
-            }
-            switch (snapshot.connectionState) {
-              case ConnectionState.none:
-                return _buildSigninButtons();
-              case ConnectionState.waiting:
-                return _buildWaitingWidget();
-              case ConnectionState.active:
-                return Center(child: Text('${snapshot.data}'));
-              case ConnectionState.done:
-                return Center(child: Text('${snapshot.data} (closed)'));
-            }
-          }),
+      home: Scaffold(
+        body: _isSigningIn ? _buildWaitingWidget() : _buildSigninButtons(),
+      ),
     );
-  }
-
-  Stream<String> _signInWithGoogle() async* {
-    yield 'starting';
-    final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
-    if (googleUser == null) {
-      yield 'sign in cancelled';
-      return;
-    }
-    yield 'got google user';
-    final GoogleSignInAuthentication googleAuth =
-        await googleUser.authentication;
-    yield 'got google auth';
-    final AuthCredential credential = GoogleAuthProvider.credential(
-      accessToken: googleAuth.accessToken,
-      idToken: googleAuth.idToken,
-    );
-    final UserCredential userCredential =
-        await FirebaseAuth.instance.signInWithCredential(credential);
-    StoreProvider.of<AppState>(context).dispatch(const ActionSignin());
-    yield 'signInWithGoogle succeeded: ${userCredential.user}';
-    return;
-  }
-
-  Stream<String> _signInWithFacebook() async* {
-    yield 'starting';
-    // final FacebookLoginResult result = await FacebookLogin().logInWithReadPermissions(['email']);
-    yield 'logged in with facebook';
-    // final AuthCredential credential = FacebookAuthProvider.credential(accessToken: result.accessToken.token);
-    // final UserCredential userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
-    // yield 'signInWithFacebook succeeded: ${userCredential.user}';
-
-    return;
   }
 
   Widget _buildSigninButtons() {
@@ -80,34 +149,34 @@ class _SigninPageState extends State<SigninPage> {
               backgroundColor: Colors.white,
               foregroundColor: Colors.black87,
             ),
-            onPressed: () {
-              setState(() {
-                _stream = _signInWithGoogle();
-              });
-            },
+            onPressed: _signInWithGoogle,
             child: signinButton('Google', 'assets/google.png'),
           ),
-          const Padding(padding: EdgeInsets.all(10.0)),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color.fromRGBO(58, 89, 152, 1.0),
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () {
-              setState(() {
-                _stream = _signInWithFacebook();
-              });
-            },
-            child: signinButton('Facebook', 'assets/facebook.png', Colors.white),
-          ),
+          if (_statusMessage != null) ...[
+            const Padding(padding: EdgeInsets.all(10.0)),
+            Text(_statusMessage!, style: const TextStyle(color: Colors.grey)),
+          ],
+          if (_errorMessage != null) ...[
+            const Padding(padding: EdgeInsets.all(10.0)),
+            Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
+          ],
         ],
       ),
     );
   }
 
   Widget _buildWaitingWidget() {
-    return const Center(
-      child: CircularProgressIndicator(),
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const CircularProgressIndicator(),
+          if (_statusMessage != null) ...[
+            const SizedBox(height: 16),
+            Text(_statusMessage!),
+          ],
+        ],
+      ),
     );
   }
 }
