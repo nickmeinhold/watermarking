@@ -157,7 +157,9 @@ module.exports = {
 
       // Step 3: Upload the marked image
       var markedFilePath = filePath + '-marked.png';
-      var markedGcsPath = 'marked-images/' + data.userId + '/' + timestamp + '/' + data.name + '.png';
+      // Remove any existing extension before adding .png to avoid double extensions
+      var baseName = data.name.replace(/\.[^/.]+$/, '');
+      var markedGcsPath = 'marked-images/' + data.userId + '/' + timestamp + '/' + baseName + '.png';
 
       await updateProgress(data.markedImageId, 'Uploading marked image...');
       console.log('Uploading marked image to:', markedGcsPath);
