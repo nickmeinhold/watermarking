@@ -74,7 +74,7 @@ tools.js                     # Twilio SMS, serving URL helper
 - **Service Account**: `keys/firebase-service-account.json`
 - **Deployed URL**: <https://watermarking-backend-78940960204.us-central1.run.app>
 
-## Current Status (Dec 2025)
+## Current Status (Jan 2026)
 
 **BLOCKING**: Marking is extremely slow on CPU. A 4-character message on a small image takes hours, hitting Cloud Run's 1-hour timeout.
 
@@ -90,6 +90,36 @@ tools.js                     # Twilio SMS, serving URL helper
 | GPU acceleration (CUDA) | ~10-100x | High effort, use Cloud Run GPU |
 
 The batching optimization is mathematically equivalent (addition is linear in frequency domain) and provides the biggest win.
+
+## Storage Paths
+
+Marked images are stored in GCS with this pattern:
+```
+marked-images/{userId}/{timestamp}/{baseName}.png
+```
+
+**Important**: The `baseName` is derived by stripping any existing extension from the original filename before adding `.png`. This ensures we get `image.png` not `image.png.png`.
+
+See `marking-queues.js:161` for the implementation.
+
+## Recent Fixes (Jan 2026)
+
+### Double .png Extension Bug (Fixed)
+
+**Problem**: Marked images were being saved with paths like `image.png.png` because the code appended `.png` to filenames that already had an extension.
+
+**Symptom**: "Error loading image" in the web app for affected marked images, with GCS errors like:
+```
+No such object: watermarking-4a428.firebasestorage.app/marked-images/.../image.png.png
+```
+
+**Fix**: `marking-queues.js` now strips the existing extension before adding `.png`:
+```javascript
+var baseName = data.name.replace(/\.[^/.]+$/, '');
+var markedGcsPath = 'marked-images/' + data.userId + '/' + timestamp + '/' + baseName + '.png';
+```
+
+**Legacy data**: Marked images created before this fix have broken `servingUrl` references. Users need to delete and re-mark those images.
 
 ## TODO
 
