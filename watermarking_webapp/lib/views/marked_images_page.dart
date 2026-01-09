@@ -256,18 +256,13 @@ class _MarkedImageCard extends StatelessWidget {
               fit: StackFit.expand,
               children: [
                 isProcessing
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const CircularProgressIndicator(),
-                            const SizedBox(height: 8),
-                            Text(
-                              marked.progress ?? 'Queued...',
-                              style: const TextStyle(color: Colors.grey),
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
+                    ? Padding(
+                        padding: const EdgeInsets.all(12.0),
+                        child: Center(
+                          child: PipelineProgressWidget(
+                            type: PipelineType.marking,
+                            progress: marked.progress,
+                          ),
                         ),
                       )
                     : Image.network(
