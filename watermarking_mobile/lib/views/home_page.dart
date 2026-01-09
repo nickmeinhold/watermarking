@@ -58,61 +58,35 @@ class DetectionSteps extends StatelessWidget {
 
   final DetectionItem firstItem;
 
+  /// Map the detection item state to a progress string for the pipeline widget
+  String? get _progressString {
+    final uploadPercent = firstItem.extractedRef?.upload?.percent ?? 0;
+
+    // If uploading, show upload progress
+    if (uploadPercent < 1) {
+      final percent = (uploadPercent * 100).toInt();
+      return 'Uploading captured image: $percent%';
+    }
+
+    // If no progress yet from server, we're waiting for server to pick up task
+    if (firstItem.progress == null) {
+      return 'Server processing...';
+    }
+
+    // Use the server's progress string
+    return firstItem.progress;
+  }
+
   @override
   Widget build(BuildContext context) {
-    int currentStep = 2;
-    final uploadPercent = firstItem.extractedRef?.upload?.percent ?? 0;
-    if (uploadPercent < 1) {
-      currentStep = 0;
-    } else if (firstItem.progress == null) {
-      currentStep = 1;
-    }
     return Column(
       children: <Widget>[
         Container(
-          padding:
-              const EdgeInsets.only(left: 10, right: 10, top: 10, bottom: 5),
-          height: 200,
-          child: Theme(
-            data: ThemeData(
-              primaryColor: Colors.red,
-            ),
-            child: Stepper(
-              currentStep: currentStep,
-              controlsBuilder: (BuildContext context, ControlsDetails details) {
-                return const SizedBox.shrink();
-              },
-              type: StepperType.horizontal,
-              steps: [
-                Step(
-                  title: const Text('Upload'),
-                  content: LinearProgressIndicator(value: uploadPercent),
-                  isActive: currentStep == 0,
-                  state: (currentStep > 0)
-                      ? StepState.complete
-                      : StepState.indexed,
-                ),
-                Step(
-                  title: const Text('Setup'),
-                  content: const Center(child: CircularProgressIndicator()),
-                  isActive: currentStep == 1,
-                  state: (currentStep > 1)
-                      ? StepState.complete
-                      : StepState.indexed,
-                ),
-                Step(
-                  title: const Text('Detect'),
-                  content: Text(firstItem.progress ?? ''),
-                  isActive: currentStep == 2,
-                  state: firstItem.error != null
-                      ? StepState.error
-                      : (currentStep > 2)
-                          ? StepState.complete
-                          : StepState.indexed,
-                ),
-              ],
-              onStepTapped: (int step) {},
-            ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: PipelineProgressWidget(
+            type: PipelineType.detection,
+            progress: _progressString,
+            hasError: firstItem.error != null,
           ),
         ),
         if (firstItem.error != null)

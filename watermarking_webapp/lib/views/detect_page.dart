@@ -207,6 +207,8 @@ class _DetectionHistoryItem extends StatelessWidget {
 
   final DetectionItem item;
 
+  bool get _isProcessing => item.result == null && item.progress != '100';
+
   @override
   Widget build(BuildContext context) {
     // If we have a remote path, we might need to resolve it locally if it's a storage path
@@ -214,6 +216,30 @@ class _DetectionHistoryItem extends StatelessWidget {
     final remotePath = item.extractedRef?.remotePath;
     final isStoragePath = remotePath != null && !remotePath.startsWith('http');
 
+    // For processing items, show a larger card with centered pipeline widget
+    if (_isProcessing) {
+      return Card(
+        margin: const EdgeInsets.only(bottom: 8),
+        elevation: 2,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => DetectionDetailDialog.show(context, item),
+          child: Container(
+            height: 140,
+            padding: const EdgeInsets.all(16.0),
+            child: Center(
+              child: PipelineProgressWidget(
+                type: PipelineType.detection,
+                progress: item.progress,
+                hasError: item.error != null,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Completed items show compact list tile style
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
