@@ -207,7 +207,15 @@ class _DetectionHistoryItem extends StatelessWidget {
 
   final DetectionItem item;
 
-  bool get _isProcessing => item.result == null && item.progress != '100';
+  /// Check if detection is still in progress based on progress string
+  bool get _isProcessing {
+    final progress = item.progress;
+    if (progress == null) return false;
+    if (progress == '100') return false;
+    if (progress.toLowerCase().contains('complete')) return false;
+    // Still processing if we have an active progress message
+    return true;
+  }
 
   @override
   Widget build(BuildContext context) {
