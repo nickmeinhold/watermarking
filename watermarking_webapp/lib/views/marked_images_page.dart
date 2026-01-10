@@ -4,14 +4,19 @@ import 'package:flutter_redux/flutter_redux.dart';
 import 'package:redux/redux.dart';
 import 'package:watermarking_core/watermarking_core.dart';
 
+import 'detection_detail_dialog.dart';
+
 class MarkedImagesPage extends StatelessWidget {
   const MarkedImagesPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return StoreConnector<AppState, OriginalImagesViewModel>(
-      converter: (Store<AppState> store) => store.state.originals,
-      builder: (BuildContext context, OriginalImagesViewModel viewModel) {
+    return StoreConnector<AppState, _CombinedViewModel>(
+      converter: (Store<AppState> store) => _CombinedViewModel(
+        originals: store.state.originals,
+        detections: store.state.detections,
+      ),
+      builder: (BuildContext context, _CombinedViewModel viewModel) {
         return Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
@@ -21,22 +26,22 @@ class MarkedImagesPage extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
-                    'Apply Watermark',
+                    'Watermarking',
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  if (viewModel.selectedImage != null)
+                  if (viewModel.originals.selectedImage != null)
                     ElevatedButton.icon(
-                      onPressed: () => _showMarkDialog(context, viewModel),
+                      onPressed: () => _showMarkDialog(context, viewModel.originals),
                       icon: const Icon(Icons.water_drop),
                       label: const Text('Apply Watermark'),
                     ),
                 ],
               ),
               const SizedBox(height: 16),
-              if (viewModel.selectedImage == null)
+              if (viewModel.originals.selectedImage == null)
                 const Expanded(
                   child: Center(
                     child: Text(
@@ -50,7 +55,7 @@ class MarkedImagesPage extends StatelessWidget {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Selected original image
+                      // Column 1: Selected original image
                       Expanded(
                         flex: 1,
                         child: Card(
@@ -60,7 +65,7 @@ class MarkedImagesPage extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const Text(
-                                  'Selected Original',
+                                  'Original',
                                   style: TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold,
@@ -68,9 +73,9 @@ class MarkedImagesPage extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 16),
                                 Expanded(
-                                  child: viewModel.selectedImage!.url != null
+                                  child: viewModel.originals.selectedImage!.url != null
                                       ? Image.network(
-                                          viewModel.selectedImage!.url!,
+                                          viewModel.originals.selectedImage!.url!,
                                           fit: BoxFit.contain,
                                         )
                                       : const Center(
@@ -79,7 +84,7 @@ class MarkedImagesPage extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  viewModel.selectedImage!.name ?? 'Unnamed',
+                                  viewModel.originals.selectedImage!.name ?? 'Unnamed',
                                   style: const TextStyle(fontSize: 14),
                                 ),
                               ],
@@ -88,7 +93,7 @@ class MarkedImagesPage extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 16),
-                      // Marked images list
+                      // Column 2: Marked images
                       Expanded(
                         flex: 2,
                         child: Card(
@@ -98,7 +103,7 @@ class MarkedImagesPage extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Watermarked Versions (${viewModel.selectedImage!.markedCount})',
+                                  'Marked (${viewModel.originals.selectedImage!.markedCount})',
                                   style: const TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold,
@@ -107,7 +112,7 @@ class MarkedImagesPage extends StatelessWidget {
                                 const SizedBox(height: 16),
                                 Expanded(
                                   child: viewModel
-                                          .selectedImage!.markedImages.isEmpty
+                                          .originals.selectedImage!.markedImages.isEmpty
                                       ? const Center(
                                           child: Text(
                                             'Click "Apply Watermark" to create a watermarked version.',
@@ -118,21 +123,21 @@ class MarkedImagesPage extends StatelessWidget {
                                       : GridView.builder(
                                           gridDelegate:
                                               const SliverGridDelegateWithMaxCrossAxisExtent(
-                                            maxCrossAxisExtent: 250,
-                                            crossAxisSpacing: 16,
-                                            mainAxisSpacing: 16,
-                                            childAspectRatio: 0.8,
+                                            maxCrossAxisExtent: 200,
+                                            crossAxisSpacing: 12,
+                                            mainAxisSpacing: 12,
+                                            childAspectRatio: 0.85,
                                           ),
-                                          itemCount: viewModel.selectedImage!
+                                          itemCount: viewModel.originals.selectedImage!
                                               .markedImages.length,
                                           itemBuilder: (context, index) {
                                             final marked = viewModel
-                                                .selectedImage!
+                                                .originals.selectedImage!
                                                 .markedImages[index];
                                             return _MarkedImageCard(
                                               marked: marked,
                                               originalPath: viewModel
-                                                  .selectedImage!.filePath!,
+                                                  .originals.selectedImage!.filePath!,
                                             );
                                           },
                                         ),
@@ -140,6 +145,68 @@ class MarkedImagesPage extends StatelessWidget {
                               ],
                             ),
                           ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      // Column 3: Detection results (filtered to selected original)
+                      Expanded(
+                        flex: 2,
+                        child: Builder(
+                          builder: (context) {
+                            // Get paths for the selected original and its marked images
+                            final selectedOriginal = viewModel.originals.selectedImage!;
+                            final originalPath = selectedOriginal.filePath;
+                            final markedPaths = selectedOriginal.markedImages
+                                .map((m) => m.path)
+                                .whereType<String>()
+                                .toSet();
+
+                            // Filter detections to only those matching this original
+                            final filteredDetections = viewModel.detections.items.where((item) {
+                              // Match by original path (originalRef.filePath holds the remotePath from Firestore)
+                              if (item.originalRef?.filePath == originalPath) return true;
+                              // Match by marked/extracted path
+                              final extractedPath = item.extractedRef?.remotePath;
+                              if (extractedPath != null && markedPaths.contains(extractedPath)) return true;
+                              return false;
+                            }).toList();
+
+                            return Card(
+                              child: Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Detection Results (${filteredDetections.length})',
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Expanded(
+                                      child: filteredDetections.isEmpty
+                                          ? const Center(
+                                              child: Text(
+                                                'Click the detection icon on a marked image to verify the watermark.',
+                                                style: TextStyle(color: Colors.grey),
+                                                textAlign: TextAlign.center,
+                                              ),
+                                            )
+                                          : ListView.builder(
+                                              itemCount: filteredDetections.length,
+                                              itemBuilder: (context, index) {
+                                                final item = filteredDetections[index];
+                                                return _DetectionHistoryItem(item: item);
+                                              },
+                                            ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
                         ),
                       ),
                     ],
@@ -162,6 +229,28 @@ class MarkedImagesPage extends StatelessWidget {
       builder: (BuildContext context) {
         return StatefulBuilder(
           builder: (context, setState) {
+            void submitWatermark() {
+              if (messageController.text.isNotEmpty) {
+                final selectedImage = viewModel.selectedImage!;
+                StoreProvider.of<AppState>(context).dispatch(
+                  ActionMarkImage(
+                    imageId: selectedImage.id!,
+                    imageName: selectedImage.name!,
+                    imagePath: selectedImage.filePath!,
+                    message: messageController.text,
+                    strength: strength * 10, // Convert 0-1 to 1-10 scale
+                  ),
+                );
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                        'Watermarking "${selectedImage.name}" with message: ${messageController.text}'),
+                  ),
+                );
+              }
+            }
+
             return AlertDialog(
               title: const Text('Apply Watermark'),
               content: Column(
@@ -170,10 +259,12 @@ class MarkedImagesPage extends StatelessWidget {
                 children: [
                   TextField(
                     controller: messageController,
+                    autofocus: true,
                     decoration: const InputDecoration(
                       labelText: 'Hidden Message',
                       hintText: 'Enter the message to embed',
                     ),
+                    onSubmitted: (_) => submitWatermark(),
                   ),
                   const SizedBox(height: 24),
                   Text('Strength: ${(strength * 100).toInt()}%'),
@@ -200,27 +291,7 @@ class MarkedImagesPage extends StatelessWidget {
                   child: const Text('Cancel'),
                 ),
                 ElevatedButton(
-                  onPressed: () {
-                    if (messageController.text.isNotEmpty) {
-                      final selectedImage = viewModel.selectedImage!;
-                      StoreProvider.of<AppState>(context).dispatch(
-                        ActionMarkImage(
-                          imageId: selectedImage.id!,
-                          imageName: selectedImage.name!,
-                          imagePath: selectedImage.filePath!,
-                          message: messageController.text,
-                          strength: strength * 10, // Convert 0-1 to 1-10 scale
-                        ),
-                      );
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                              'Watermarking "${selectedImage.name}" with message: ${messageController.text}'),
-                        ),
-                      );
-                    }
-                  },
+                  onPressed: submitWatermark,
                   child: const Text('Apply'),
                 ),
               ],
@@ -362,8 +433,7 @@ class _MarkedImageCard extends StatelessWidget {
                           );
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text(
-                                  'Detection started. Check "Detect" page for results.'),
+                              content: Text('Detection started...'),
                               duration: Duration(seconds: 2),
                             ),
                           );
@@ -414,6 +484,142 @@ class _MarkedImageCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Combined view model for originals and detections
+class _CombinedViewModel {
+  const _CombinedViewModel({
+    required this.originals,
+    required this.detections,
+  });
+
+  final OriginalImagesViewModel originals;
+  final DetectionItemsViewModel detections;
+}
+
+/// Detection history item widget
+class _DetectionHistoryItem extends StatelessWidget {
+  const _DetectionHistoryItem({required this.item});
+
+  final DetectionItem item;
+
+  bool get _isProcessing {
+    final progress = item.progress;
+    if (progress == null) return false;
+    if (progress == '100') return false;
+    if (progress.toLowerCase().contains('complete')) return false;
+    return true;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final remotePath = item.extractedRef?.remotePath;
+    final isStoragePath = remotePath != null && !remotePath.startsWith('http');
+
+    // Processing items show pipeline progress
+    if (_isProcessing) {
+      return Card(
+        margin: const EdgeInsets.only(bottom: 8),
+        elevation: 2,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => DetectionDetailDialog.show(context, item),
+          child: Container(
+            height: 100,
+            padding: const EdgeInsets.all(12.0),
+            child: Center(
+              child: PipelineProgressWidget(
+                type: PipelineType.detection,
+                progress: item.progress,
+                hasError: item.error != null,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Completed items show compact list tile
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        onTap: () => DetectionDetailDialog.show(context, item),
+        leading: remotePath != null
+            ? ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: isStoragePath
+                    ? FutureBuilder<String>(
+                        future: StorageService().getDownloadUrl(remotePath),
+                        builder: (context, snapshot) {
+                          if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+                            return Image.network(
+                              snapshot.data!,
+                              width: 48,
+                              height: 48,
+                              fit: BoxFit.cover,
+                            );
+                          }
+                          return const SizedBox(
+                            width: 48,
+                            height: 48,
+                            child: Center(
+                                child: CircularProgressIndicator(strokeWidth: 2)),
+                          );
+                        },
+                      )
+                    : Image.network(
+                        remotePath,
+                        width: 48,
+                        height: 48,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                            const Icon(Icons.broken_image, size: 48),
+                      ),
+              )
+            : const Icon(Icons.image_outlined, size: 48),
+        title: Text(
+          item.result ?? 'Processing...',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Text(_getStatusText(item)),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _getStatusIcon(item),
+            const SizedBox(width: 4),
+            const Icon(Icons.chevron_right, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _getStatusText(DetectionItem item) {
+    if (item.confidence != null) {
+      return 'Confidence: ${item.confidence!.toStringAsFixed(1)}';
+    }
+    final progress = item.progress;
+    if (progress != null && progress != '100') {
+      return progress;
+    }
+    if (item.result != null) return 'Complete';
+    return 'Pending';
+  }
+
+  Widget _getStatusIcon(DetectionItem item) {
+    if (item.error != null) {
+      return const Icon(Icons.error, color: Colors.red, size: 20);
+    }
+    if (item.result != null) {
+      return const Icon(Icons.check_circle, color: Colors.green, size: 20);
+    }
+    return const SizedBox(
+      width: 20,
+      height: 20,
+      child: CircularProgressIndicator(strokeWidth: 2),
     );
   }
 }

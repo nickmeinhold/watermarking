@@ -13,8 +13,11 @@ var miscTasks = require('./misc-queues');
 var unsubscribe = null;
 
 module.exports = {
-  setup: function () {
+  setup: async function () {
     console.log('Setting up Firestore task queue listener...');
+
+    // Recover stale "processing" tasks (instance may have crashed)
+    await recoverStaleTasks();
 
     // Listen for pending tasks
     unsubscribe = db.collection('tasks')
@@ -25,6 +28,12 @@ module.exports = {
             const taskDoc = change.doc;
             const taskData = taskDoc.data();
             const taskId = taskDoc.id;
+
+            // Skip heavy tasks - these are handled by Cloud Run Jobs
+            if (taskData.type === 'mark' || taskData.type === 'detect') {
+              console.log(`Skipping ${taskData.type} task ${taskId} - handled by Cloud Run Job`);
+              continue;
+            }
 
             console.log(`Processing task ${taskId} of type: ${taskData.type}`);
 
@@ -76,6 +85,9 @@ async function processTask(taskId, data) {
     case 'get_serving_url':
       await miscTasks.processServingUrlTask(data);
       break;
+    case 'delete_original_image':
+      await miscTasks.processDeleteOriginalImageTask(data);
+      break;
     case 'delete_marked_image':
       await miscTasks.processDeleteMarkedImageTask(data);
       break;
@@ -84,5 +96,34 @@ async function processTask(taskId, data) {
       break;
     default:
       throw new Error(`Unknown task type: ${data.type}`);
+  }
+}
+
+// Recover tasks that were left in "processing" status when instance crashed
+async function recoverStaleTasks() {
+  const staleThreshold = 5 * 60 * 1000; // 5 minutes
+  const now = Date.now();
+
+  try {
+    const processingTasks = await db.collection('tasks')
+      .where('status', '==', 'processing')
+      .get();
+
+    for (const doc of processingTasks.docs) {
+      const task = doc.data();
+      const startedAt = task.startedAt?.toDate?.() || task.startedAt;
+
+      // Reset if started more than 5 minutes ago (instance likely died)
+      if (startedAt && (now - new Date(startedAt).getTime()) > staleThreshold) {
+        console.log(`Recovering stale task ${doc.id} (started: ${startedAt})`);
+        await doc.ref.update({
+          status: 'pending',
+          recoveredAt: new Date(),
+          previousStartedAt: startedAt
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Error recovering stale tasks:', error);
   }
 }

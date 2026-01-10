@@ -39,6 +39,9 @@ List<Middleware<AppState>> createMiddlewares(
     TypedMiddleware<AppState, ActionMarkImage>(
       _markImage(databaseService),
     ).call,
+    TypedMiddleware<AppState, ActionDeleteOriginalImage>(
+      _deleteOriginalImage(databaseService),
+    ).call,
     TypedMiddleware<AppState, ActionDeleteMarkedImage>(
       _deleteMarkedImage(databaseService),
     ).call,
@@ -286,6 +289,26 @@ void Function(
       store.dispatch(ActionAddProblem(
         problem: Problem(
           type: ProblemType.marking,
+          message: error.toString(),
+          trace: trace,
+        ),
+      ));
+    }
+  };
+}
+
+void Function(Store<AppState> store, ActionDeleteOriginalImage action,
+    NextDispatcher next) _deleteOriginalImage(DatabaseService databaseService) {
+  return (Store<AppState> store, ActionDeleteOriginalImage action,
+      NextDispatcher next) async {
+    next(action);
+
+    try {
+      await databaseService.deleteOriginalImage(action.originalImageId);
+    } catch (error, trace) {
+      store.dispatch(ActionAddProblem(
+        problem: Problem(
+          type: ProblemType.images,
           message: error.toString(),
           trace: trace,
         ),
