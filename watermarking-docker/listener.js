@@ -7,10 +7,11 @@ var taskQueue = require('./task-queue');
 
 console.log('Starting watermarking backend service...');
 
-// Setup the Firestore task queue listener
-taskQueue.setup();
-
-console.log('Task queue listener is active.');
+// Setup the Firestore task queue listener (async for stale task recovery)
+(async () => {
+  await taskQueue.setup();
+  console.log('Task queue listener is active.');
+})();
 
 // Cloud Run requires an HTTP server to respond to health checks
 const PORT = process.env.PORT || 8080;
