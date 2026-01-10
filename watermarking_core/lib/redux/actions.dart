@@ -253,6 +253,12 @@ class ActionUpdateMarkedImages extends Action {
   final Map<String, List<Map<String, dynamic>>> markedImagesByOriginal;
 }
 
+class ActionDeleteOriginalImage extends Action {
+  ActionDeleteOriginalImage({required this.originalImageId})
+      : super(<String, Object>{'originalImageId': originalImageId});
+  final String originalImageId;
+}
+
 class ActionDeleteMarkedImage extends Action {
   ActionDeleteMarkedImage({required this.markedImageId})
       : super(<String, Object>{'markedImageId': markedImageId});

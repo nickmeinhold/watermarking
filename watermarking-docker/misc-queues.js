@@ -29,7 +29,55 @@ module.exports = {
 
 
   /**
-   * Delete a marked image (file and database entry)
+   * Delete an original image and all its marked versions
+   */
+  processDeleteOriginalImageTask: async function (data) {
+    console.log(`Processing delete request for original image: ${data.originalImageId}`);
+
+    const originalDocRef = db.collection('originalImages').doc(data.originalImageId);
+    const originalDoc = await originalDocRef.get();
+
+    if (!originalDoc.exists) {
+      console.log('Original image document not found, maybe already deleted.');
+      return;
+    }
+
+    const originalData = originalDoc.data();
+    const gcsPath = originalData.path;
+
+    // Delete all marked images that reference this original
+    const markedImages = await db.collection('markedImages')
+      .where('originalImageId', '==', data.originalImageId)
+      .get();
+
+    for (const markedDoc of markedImages.docs) {
+      const markedData = markedDoc.data();
+      if (markedData.path) {
+        try {
+          await storageHelper.deleteFile(markedData.path);
+        } catch (e) {
+          console.error(`Failed to delete marked image file ${markedData.path}:`, e);
+        }
+      }
+      await markedDoc.ref.delete();
+      console.log(`Deleted marked image ${markedDoc.id}`);
+    }
+
+    // Delete the original image file
+    if (gcsPath) {
+      try {
+        await storageHelper.deleteFile(gcsPath);
+      } catch (e) {
+        console.error('Failed to delete original image file from storage:', e);
+      }
+    }
+
+    await originalDocRef.delete();
+    console.log(`Deleted original image document ${data.originalImageId}`);
+  },
+
+  /**
+   * Delete a marked image (file, database entry, and related detection items)
    */
   processDeleteMarkedImageTask: async function (data) {
     console.log(`Processing delete request for marked image: ${data.markedImageId}`);
@@ -43,8 +91,28 @@ module.exports = {
     }
 
     const markedData = markedDoc.data();
-    const gcsPath = markedData.path; // Assuming 'path' field stores the GCS path (e.g. 'marked-images/...')
+    const gcsPath = markedData.path;
 
+    // Delete all detection items that reference this marked image
+    const detectionItems = await db.collection('detectionItems')
+      .where('markedImageId', '==', data.markedImageId)
+      .get();
+
+    for (const detectionDoc of detectionItems.docs) {
+      const detectionData = detectionDoc.data();
+      // Delete the extracted/detected image file
+      if (detectionData.pathMarked) {
+        try {
+          await storageHelper.deleteFile(detectionData.pathMarked);
+        } catch (e) {
+          console.error(`Failed to delete detection image file ${detectionData.pathMarked}:`, e);
+        }
+      }
+      await detectionDoc.ref.delete();
+      console.log(`Deleted detection item ${detectionDoc.id}`);
+    }
+
+    // Delete the marked image file
     if (gcsPath) {
       try {
         await storageHelper.deleteFile(gcsPath);

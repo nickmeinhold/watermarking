@@ -230,6 +230,17 @@ class DatabaseService {
     return markedRef.id;
   }
 
+  Future<void> deleteOriginalImage(String originalImageId) async {
+    await _db.collection('tasks').add({
+      'type': 'delete_original_image',
+      'status': 'pending',
+      'userId': userId,
+      'originalImageId': originalImageId,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+    _wakeUpBackend();
+  }
+
   Future<void> requestMarkedImageDelete(String markedImageId) async {
     await _db.collection('tasks').add({
       'type': 'delete_marked_image',

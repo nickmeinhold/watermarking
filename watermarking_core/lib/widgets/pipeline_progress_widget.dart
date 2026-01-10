@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 /// The type of pipeline operation
@@ -19,11 +21,12 @@ enum PipelineStage {
 ///
 /// Displays stages as icons connected by lines, with the current stage highlighted
 /// and a circular progress indicator showing progress within each stage.
-class PipelineProgressWidget extends StatelessWidget {
+class PipelineProgressWidget extends StatefulWidget {
   final PipelineType type;
   final String? progress;
   final bool isComplete;
   final bool hasError;
+  final DateTime? startedAt;
 
   const PipelineProgressWidget({
     super.key,
@@ -31,18 +34,61 @@ class PipelineProgressWidget extends StatelessWidget {
     this.progress,
     this.isComplete = false,
     this.hasError = false,
+    this.startedAt,
   });
+
+  @override
+  State<PipelineProgressWidget> createState() => _PipelineProgressWidgetState();
+}
+
+class _PipelineProgressWidgetState extends State<PipelineProgressWidget> {
+  late DateTime _startTime;
+  Timer? _timer;
+  Duration _elapsed = Duration.zero;
+
+  @override
+  void initState() {
+    super.initState();
+    _startTime = widget.startedAt ?? DateTime.now();
+    _elapsed = DateTime.now().difference(_startTime);
+    _startTimer();
+  }
+
+  void _startTimer() {
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted && !widget.isComplete) {
+        setState(() {
+          _elapsed = DateTime.now().difference(_startTime);
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  String _formatDuration(Duration d) {
+    final minutes = d.inMinutes;
+    final seconds = d.inSeconds % 60;
+    if (minutes > 0) {
+      return '${minutes}m ${seconds}s';
+    }
+    return '${seconds}s';
+  }
 
   /// Parse progress string to determine current stage
   PipelineStage get currentStage {
-    if (hasError) return PipelineStage.error;
-    if (isComplete) return PipelineStage.complete;
-    if (progress == null) return PipelineStage.queued;
+    if (widget.hasError) return PipelineStage.error;
+    if (widget.isComplete) return PipelineStage.complete;
+    if (widget.progress == null) return PipelineStage.queued;
 
-    final p = progress!.toLowerCase();
+    final p = widget.progress!.toLowerCase();
 
     // Detection-specific
-    if (type == PipelineType.detection) {
+    if (widget.type == PipelineType.detection) {
       if (p.contains('uploading')) return PipelineStage.uploading;
       if (p.contains('downloading')) return PipelineStage.downloading;
       if (p.contains('detecting') || p.contains('analyzing') || p.contains('sequence')) {
@@ -54,7 +100,7 @@ class PipelineProgressWidget extends StatelessWidget {
     }
 
     // Marking-specific
-    if (type == PipelineType.marking) {
+    if (widget.type == PipelineType.marking) {
       if (p.contains('queued')) return PipelineStage.queued;
       if (p.contains('downloading')) return PipelineStage.downloading;
       if (p.contains('loading')) return PipelineStage.processing;
@@ -71,9 +117,9 @@ class PipelineProgressWidget extends StatelessWidget {
 
   /// Parse progress string to extract a percentage (0.0 to 1.0)
   double get stageProgress {
-    if (progress == null) return 0.0;
+    if (widget.progress == null) return 0.0;
 
-    final p = progress!;
+    final p = widget.progress!;
 
     // Try to parse percentage like "50%" or ": 50%"
     final percentMatch = RegExp(r'(\d+)%').firstMatch(p);
@@ -98,7 +144,7 @@ class PipelineProgressWidget extends StatelessWidget {
 
   /// Get the stage index for progress calculation
   int _stageIndex(PipelineStage stage) {
-    if (type == PipelineType.marking) {
+    if (widget.type == PipelineType.marking) {
       return switch (stage) {
         PipelineStage.queued => 0,
         PipelineStage.downloading => 1,
@@ -124,7 +170,7 @@ class PipelineProgressWidget extends StatelessWidget {
     }
   }
 
-  int get _totalStages => type == PipelineType.marking ? 5 : 4;
+  int get _totalStages => widget.type == PipelineType.marking ? 5 : 4;
 
   @override
   Widget build(BuildContext context) {
@@ -132,7 +178,7 @@ class PipelineProgressWidget extends StatelessWidget {
     final stageIdx = _stageIndex(stage);
     final progressValue = stageProgress;
 
-    final stages = type == PipelineType.marking
+    final stages = widget.type == PipelineType.marking
         ? [
             _StageInfo('phone_iphone', 'Queued'),
             _StageInfo('cloud_download', 'Download'),
@@ -154,32 +200,37 @@ class PipelineProgressWidget extends StatelessWidget {
       children: [
         SizedBox(
           height: 56,
-          child: Row(
-            children: [
-              for (int i = 0; i < stages.length; i++) ...[
-                _StageIconWidget(
-                  info: stages[i],
-                  index: i,
-                  currentIndex: stageIdx,
-                  hasError: hasError,
-                  totalStages: _totalStages,
-                  progressValue: progressValue,
-                ),
-                if (i < stages.length - 1)
-                  Expanded(
-                    child: _buildConnector(context, i, stageIdx, hasError, progressValue),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (int i = 0; i < stages.length; i++) ...[
+                  _StageIconWidget(
+                    info: stages[i],
+                    index: i,
+                    currentIndex: stageIdx,
+                    hasError: widget.hasError,
+                    totalStages: _totalStages,
+                    progressValue: progressValue,
                   ),
+                  if (i < stages.length - 1)
+                    SizedBox(
+                      width: 24,
+                      child: _buildConnector(context, i, stageIdx, widget.hasError, progressValue),
+                    ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
-        if (progress != null && !isComplete) ...[
+        if (widget.progress != null && !widget.isComplete) ...[
           const SizedBox(height: 4),
           Text(
-            _formatProgress(progress!),
+            '${_formatProgress(widget.progress!)} · ${_formatDuration(_elapsed)}',
             style: TextStyle(
               fontSize: 11,
-              color: hasError
+              color: widget.hasError
                   ? Colors.red.shade300
                   : Theme.of(context).colorScheme.onSurfaceVariant,
             ),
