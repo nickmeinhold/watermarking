@@ -6,7 +6,6 @@ import 'package:redux/redux.dart';
 import 'package:watermarking_core/watermarking_core.dart';
 import 'package:watermarking_webapp/services/web_device_service.dart';
 import 'package:watermarking_webapp/views/admin_page.dart';
-import 'package:watermarking_webapp/views/detect_page.dart';
 import 'package:watermarking_webapp/views/marked_images_page.dart';
 import 'package:watermarking_webapp/views/opening_page.dart';
 import 'package:watermarking_webapp/views/original_images_page.dart';
@@ -85,10 +84,6 @@ class _WatermarkingAppState extends State<WatermarkingApp> {
             GoRoute(
               path: '/marked',
               builder: (context, state) => const MarkedImagesPage(),
-            ),
-            GoRoute(
-              path: '/detect',
-              builder: (context, state) => const DetectPage(),
             ),
             GoRoute(
               path: '/admin',
@@ -196,18 +191,10 @@ class AppShell extends StatelessWidget {
             ),
             ListTile(
               leading: const Icon(Icons.water_drop),
-              title: const Text('Marked Images'),
+              title: const Text('Watermarking'),
               onTap: () {
                 Navigator.pop(context);
                 context.go('/marked');
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.search),
-              title: const Text('Detect'),
-              onTap: () {
-                Navigator.pop(context);
-                context.go('/detect');
               },
             ),
             const Divider(),

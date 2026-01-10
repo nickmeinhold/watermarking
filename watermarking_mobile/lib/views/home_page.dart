@@ -22,27 +22,44 @@ class DetectionHistoryListView extends StatelessWidget {
     return StoreConnector<AppState, List<DetectionItem>>(
         converter: (Store<AppState> store) => store.state.detections.items,
         builder: (BuildContext context, List<DetectionItem> items) {
+          // Check if there's an active detection (first item has no result)
+          final hasActiveDetection = items.isNotEmpty && items.first.result == null;
+
+          // Filter to only show completed items in the list when pipeline is showing
+          final completedItems = hasActiveDetection
+              ? items.where((item) => item.result != null).toList()
+              : items;
+
           return Column(
             children: <Widget>[
-              if (items.isNotEmpty && items.first.result == null)
+              if (hasActiveDetection)
                 DetectionSteps(items.first),
               Expanded(
-                child: ListView.builder(
-                    itemCount: items.length,
-                    itemBuilder: (BuildContext context, int index) {
-                      final item = items[index];
-                      return DetectionCard(
-                        item: item,
-                        onDismissed: () {
-                          if (item.id != null) {
-                            StoreProvider.of<AppState>(context).dispatch(
-                              ActionDeleteDetectionItem(
-                                  detectionItemId: item.id!),
-                            );
-                          }
-                        },
-                      );
-                    }),
+                child: completedItems.isEmpty
+                    ? Center(
+                        child: Text(
+                          hasActiveDetection
+                              ? 'Detection in progress...'
+                              : 'No detection history yet.',
+                          style: TextStyle(color: Colors.grey.shade600),
+                        ),
+                      )
+                    : ListView.builder(
+                        itemCount: completedItems.length,
+                        itemBuilder: (BuildContext context, int index) {
+                          final item = completedItems[index];
+                          return DetectionCard(
+                            item: item,
+                            onDismissed: () {
+                              if (item.id != null) {
+                                StoreProvider.of<AppState>(context).dispatch(
+                                  ActionDeleteDetectionItem(
+                                      detectionItemId: item.id!),
+                                );
+                              }
+                            },
+                          );
+                        }),
               )
             ],
           );

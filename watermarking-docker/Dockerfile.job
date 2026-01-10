@@ -1,0 +1,27 @@
+# Dockerfile for Cloud Run Jobs
+# Inherits from the cached base image containing all dependencies and binaries
+# Runs a single task and exits (no HTTP server)
+
+FROM gcr.io/watermarking-4a428/watermarking-base:latest
+
+WORKDIR /app
+
+# Copy Node.js package files
+COPY package.json /app/package.json
+
+# Install Node.js dependencies
+RUN npm install
+
+# Copy JavaScript application files
+COPY job.js /app/job.js
+COPY misc-queues.js /app/misc-queues.js
+COPY marking-queues.js /app/marking-queues.js
+COPY detection-queues.js /app/detection-queues.js
+COPY firebase-admin-singleton.js /app/firebase-admin-singleton.js
+COPY storage-helper.js /app/storage-helper.js
+
+# Copy Firebase credentials
+COPY keys/firebase-service-account.json /app/keys/firebase-service-account.json
+
+# Run the job (reads TASK_ID from environment)
+CMD ["node", "job.js"]
