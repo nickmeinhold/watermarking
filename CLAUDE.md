@@ -1,4 +1,26 @@
-# Watermarking System
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Quick Start
+
+```bash
+# Web App
+cd watermarking_webapp && flutter pub get && flutter run -d chrome
+
+# iOS App (requires physical device)
+cd watermarking_mobile && flutter pub get && cd ios && pod update && cd .. && flutter run
+
+# Backend (Docker)
+cd watermarking-docker
+docker buildx build --platform linux/amd64 -f Dockerfile.cloudrun \
+  -t gcr.io/watermarking-4a428/watermarking-cloudrun:latest --push .
+gcloud run deploy watermarking-backend \
+  --image gcr.io/watermarking-4a428/watermarking-cloudrun:latest \
+  --region us-central1 --project watermarking-4a428
+```
+
+## Overview
 
 Digital watermarking system for embedding and detecting invisible messages in images that survive print-and-scan.
 

@@ -1,12 +1,29 @@
-# Watermarking Web App (Flutter)
+# CLAUDE.md
 
-Flutter web application for managing watermarked images - upload originals, view marked images, and trigger detection tasks.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Quick Start
+
+```bash
+# Install dependencies
+flutter pub get
+
+# Run locally
+flutter run -d chrome
+
+# Build & deploy to Firebase Hosting
+firebase deploy --only hosting
+```
+
+## Overview
+
+Flutter web application for managing watermarked images - upload originals, apply watermarks, and view detection results.
 
 ## Role in System
 
-This is the web interface component of the watermarking system. See `../CLAUDE.md` for full system architecture.
+Web interface component of the watermarking system. See `../CLAUDE.md` for full system architecture.
 
-```sh
+```
 ┌─────────────────┐
 │ watermarking_   │ ← YOU ARE HERE
 │ webapp          │   Web interface for image management
@@ -33,103 +50,96 @@ This is the web interface component of the watermarking system. See `../CLAUDE.m
 - **Backend**: Cloud Firestore + Storage
 - **UI**: Material Design 3
 
-## Features
+## Routes
 
-| Page | Route | Purpose |
-| ------ | ------- | --------- |
-| Opening | `/opening` | Google Sign-In landing page |
-| Original Images | `/original` | Upload and manage original images |
-| Marked Images | `/marked` | View watermarked outputs from backend |
-| Detect | `/detect` | Trigger detection tasks, view results |
-| Admin | `/admin` | Administrative functions |
+| Route | Page | Purpose |
+|-------|------|---------|
+| `/opening` | OpeningPage | Google Sign-In landing |
+| `/original` | OriginalImagesPage | Upload and manage originals |
+| `/marked` | MarkedImagesPage | Apply watermarks, view results, trigger detection |
+| `/admin` | AdminPage | Administrative functions |
+
+Note: Detection UI is integrated into MarkedImagesPage (not a separate route).
 
 ## Architecture
 
 ### State Management
 
-Uses Redux pattern with epics for async operations:
+Redux pattern with epics for async operations:
 
-- **Store**: Single `AppState` with slices for user, originals, marked images, etc.
-- **Middleware**: Custom middleware + Epic middleware for Firebase operations
-- **Actions**: Dispatch actions like `ActionUploadOriginalImage`, `ActionSetSelectedImage`
+- **Store**: Single `AppState` with slices for user, originals, marked images
+- **Middleware**: Custom + Epic middleware for Firebase operations
+- **Actions**: `ActionUploadOriginalImage`, `ActionMarkImage`, `ActionSetSelectedImage`, etc.
 
 ### Shared Code
 
-Depends on `watermarking_core` package (sibling directory) which provides:
+Depends on `watermarking_core` package (`../watermarking_core`) which provides:
 
 - `AppState`, reducers, actions
 - `AuthService`, `DatabaseService`, `StorageService`
-- Data models: `UserModel`, `OriginalImageReference`, etc.
+- Data models: `UserModel`, `OriginalImageReference`, `MarkedImageReference`, `DetectionItem`
 - Platform-specific `DeviceService` interface
+- Detection visualization widgets (11 chart cards)
 
-This app provides `WebDeviceService` implementation for web-specific functionality.
+This app provides `WebDeviceService` implementation for web-specific file picking.
 
 ### Firebase Integration
 
-Connects to project: `watermarking-4a428`
+Project: `watermarking-4a428`
 
-**Cloud Firestore** collections:
-
-```sh
-/users/{userId}              - user profile data
-/originalImages/{imageId}    - original image metadata (filtered by userId)
-/markedImages/{imageId}      - marked image metadata & results
+**Firestore** collections:
+```
+/users/{userId}              - user profile
+/originalImages/{imageId}    - original image metadata
+/markedImages/{imageId}      - marked image metadata & processing status
 /tasks/{taskId}              - processing tasks (mark, detect, get_serving_url)
 /detecting/{userId}          - detection progress state
-/detectionItems/{itemId}     - detection results
+/detectionItems/{itemId}     - detection results with statistics
 ```
 
 **Storage** paths:
-
 - `original-images/{userId}/` - uploaded source images
 - `marked-images/{userId}/` - watermarked outputs
-- `detecting-images/{userId}/` - images captured for detection
+- `detecting-images/{userId}/` - captured images for detection
 
-## Workflows
+## Build & Deploy
 
-### Upload & Mark
-
-1. User uploads image via file picker on `/original` page
-2. App dispatches `ActionUploadOriginalImage`
-3. Middleware uploads to Storage, writes metadata to Firestore, creates `get_serving_url` task
-4. Backend (watermarking-docker) picks up task, generates CDN serving URL
-5. User selects image and triggers marking with message/strength
-6. Backend runs C++ mark binary, uploads marked image
-7. Marked image appears in `/marked` page
-
-### Detection
-
-1. User uploads captured image on `/detect` page
-2. App queues detection task in Firestore
-3. Backend runs C++ detect binary
-4. Results written back to Firestore
-5. Decoded message displayed in UI
-
-## Development
-
-### Prerequisites
-
-- Flutter SDK 3.x
-- `watermarking_core` package available at `../watermarking_core`
-- Firebase project configured (see `firebase_options.dart`)
-
-### Run
-
+### Development
 ```bash
 flutter run -d chrome
 ```
 
-### Build
-
+### Production Build
 ```bash
-flutter build web
+# Manual build
+flutter build web --release --source-maps
+
+# Or use the build script (includes dart-define flags)
+./build_web.sh
 ```
 
-Output in `build/web/` can be deployed to Firebase Hosting or any static host.
+### Deploy to Firebase Hosting
+```bash
+firebase deploy --only hosting
+# Note: predeploy hook runs build_web.sh automatically
+```
+
+Build output: `build/web/`
+
+## Key Files
+
+| File | Purpose |
+|------|---------|
+| `lib/main.dart` | App entry, routing, Redux store setup, AppShell navigation |
+| `lib/services/web_device_service.dart` | Web-specific file picker implementation |
+| `lib/views/original_images_page.dart` | Upload UI with progress, delete functionality |
+| `lib/views/marked_images_page.dart` | Watermark dialog, detection trigger, results display |
+| `lib/views/detection_detail_dialog.dart` | Full detection statistics in responsive dialog |
+| `build_web.sh` | Production build with dart-define flags |
 
 ## Related Projects
 
-- `../watermarking_mobile/` - Flutter iOS app (image capture & detection)
-- `../watermarking-docker/` - Node.js backend (processes mark/detect tasks)
-- `../watermarking-functions/` - C++ algorithms (DFT watermarking)
-- `../watermarking_core/` - Shared Flutter package (state, models, services)
+- `../watermarking_core/` - Shared Flutter package
+- `../watermarking_mobile/` - iOS app (camera capture & detection)
+- `../watermarking-docker/` - Backend (C++ mark/detect processing)
+- `../watermarking-functions/` - C++ algorithms

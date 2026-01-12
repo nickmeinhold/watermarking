@@ -6,6 +6,9 @@ import 'package:watermarking_mobile/services/mobile_device_service.dart';
 import 'package:watermarking_mobile/views/app.dart';
 import 'firebase_options.dart';
 
+// Set to true to bypass Google Sign-In for testing
+const bool kBypassAuth = true;
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
@@ -28,6 +31,11 @@ void main() async {
         createEpicMiddleware(authService, databaseService, storageService),
       ],
       initialState: AppState.initialState());
+
+  // Bypass auth for testing on Android
+  if (kBypassAuth) {
+    store.dispatch(ActionSetAuthState(userId: 'test-user-android'));
+  }
 
   runApp(MyApp(store));
 }
