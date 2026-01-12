@@ -39,6 +39,7 @@ jobs:
           # Check which areas changed
           echo "docker=$([[ "$CHANGED" == *"watermarking-docker/"* ]] && echo true || echo false)" >> $GITHUB_OUTPUT
           echo "dart=$([[ "$CHANGED" == *"watermarking_core/"* || "$CHANGED" == *"watermarking_mobile/"* || "$CHANGED" == *"watermarking_webapp/"* ]] && echo true || echo false)" >> $GITHUB_OUTPUT
+          echo "ios=$([[ "$CHANGED" == *"watermarking_mobile/ios/"* ]] && echo true || echo false)" >> $GITHUB_OUTPUT
 
       - name: Setup Node.js
         if: steps.changed.outputs.docker == 'true'
@@ -79,3 +80,49 @@ jobs:
         if: steps.changed.outputs.dart == 'true'
         run: flutter test
         working-directory: watermarking_core
+
+    outputs:
+      ios: ${{ steps.changed.outputs.ios }}
+
+  ios-tests:
+    name: iOS Unit Tests
+    runs-on: macos-latest
+    needs: analyze-and-test
+    if: needs.analyze-and-test.outputs.ios == 'true'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+        working-directory: watermarking_mobile
+
+      - name: Install CocoaPods
+        run: |
+          cd watermarking_mobile/ios
+          pod install
+
+      - name: Run iOS unit tests
+        run: |
+          cd watermarking_mobile/ios
+          xcodebuild test \
+            -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -destination 'platform=iOS Simulator,name=iPhone 15' \
+            -only-testing:RunnerTests \
+            -resultBundlePath TestResults \
+            | xcpretty --color || true
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-test-results
+          path: watermarking_mobile/ios/TestResults
+          retention-days: 7
