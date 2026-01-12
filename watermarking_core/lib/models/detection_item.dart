@@ -20,6 +20,7 @@ class DetectionItem {
     this.error,
     this.detected,
     this.statistics,
+    this.isCaptured,
   });
 
   final String? id;
@@ -33,6 +34,9 @@ class DetectionItem {
   final bool? detected;
   final DetectionStatistics? statistics;
 
+  /// True if detection was run on a captured screenshot, false if on a marked image directly
+  final bool? isCaptured;
+
   DetectionItem copyWith({
     String? id,
     DateTime? started,
@@ -44,6 +48,7 @@ class DetectionItem {
     String? error,
     bool? detected,
     DetectionStatistics? statistics,
+    bool? isCaptured,
   }) {
     return DetectionItem(
       id: id ?? this.id,
@@ -56,6 +61,7 @@ class DetectionItem {
       error: error ?? this.error,
       detected: detected ?? this.detected,
       statistics: statistics ?? this.statistics,
+      isCaptured: isCaptured ?? this.isCaptured,
     );
   }
 
@@ -71,6 +77,7 @@ class DetectionItem {
         error,
         detected,
         statistics,
+        isCaptured,
       ]);
 
   @override
@@ -87,7 +94,8 @@ class DetectionItem {
           confidence == other.confidence &&
           error == other.error &&
           detected == other.detected &&
-          statistics == other.statistics;
+          statistics == other.statistics &&
+          isCaptured == other.isCaptured;
 
   @override
   String toString() {
@@ -105,5 +113,6 @@ class DetectionItem {
         'error': error,
         'detected': detected,
         'statistics': statistics?.toJson(),
+        'isCaptured': isCaptured,
       };
 }

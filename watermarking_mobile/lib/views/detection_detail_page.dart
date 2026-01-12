@@ -107,6 +107,7 @@ class DetectionDetailPage extends StatelessWidget {
       confidence: item.confidence,
       detected: item.detected,
       imageWidget: imageWidget,
+      isCaptured: item.isCaptured,
     );
   }
 
