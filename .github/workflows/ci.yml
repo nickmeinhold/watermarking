@@ -7,31 +7,75 @@ on:
     branches: [main]
 
 jobs:
-  node-tests:
+  analyze-and-test:
+    name: Analyze & Test
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: watermarking-docker
+
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get changed files
+        id: changed
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE=${{ github.event.pull_request.base.sha }}
+          else
+            BASE=${{ github.event.before }}
+          fi
+
+          # Handle initial commit
+          if [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
+            CHANGED=$(git ls-tree -r --name-only HEAD)
+          else
+            CHANGED=$(git diff --name-only $BASE HEAD)
+          fi
+
+          echo "files<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGED" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          # Check which areas changed
+          echo "docker=$([[ "$CHANGED" == *"watermarking-docker/"* ]] && echo true || echo false)" >> $GITHUB_OUTPUT
+          echo "dart=$([[ "$CHANGED" == *"watermarking_core/"* || "$CHANGED" == *"watermarking_mobile/"* || "$CHANGED" == *"watermarking_webapp/"* ]] && echo true || echo false)" >> $GITHUB_OUTPUT
+
+      - name: Setup Node.js
+        if: steps.changed.outputs.docker == 'true'
+        uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: "npm"
           cache-dependency-path: watermarking-docker/package-lock.json
-      - run: npm ci
-      - run: npm test
 
-  dart-tests:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: watermarking_core
-    steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
+      - name: Install Node dependencies
+        if: steps.changed.outputs.docker == 'true'
+        run: npm ci
+        working-directory: watermarking-docker
+
+      - name: Run Node tests
+        if: steps.changed.outputs.docker == 'true'
+        run: npm test
+        working-directory: watermarking-docker
+
+      - name: Setup Flutter
+        if: steps.changed.outputs.dart == 'true'
+        uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
-      - run: flutter pub get
-      - run: flutter test
+
+      - name: Install Dart dependencies
+        if: steps.changed.outputs.dart == 'true'
+        run: flutter pub get
+        working-directory: watermarking_core
+
+      - name: Analyze Dart code
+        if: steps.changed.outputs.dart == 'true'
+        run: flutter analyze
+        working-directory: watermarking_core
+
+      - name: Run Dart tests
+        if: steps.changed.outputs.dart == 'true'
+        run: flutter test
+        working-directory: watermarking_core
