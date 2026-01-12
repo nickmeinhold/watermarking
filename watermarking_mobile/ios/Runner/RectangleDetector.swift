@@ -124,7 +124,7 @@ class RectangleDetector {
             return
         }
         scaleFilter.setValue(perspectiveImage.oriented(.right), forKey: kCIInputImageKey)
-        scaleFilter.setValue(512.0/perspectiveImage.extent.width, forKey: kCIInputScaleKey)
+        scaleFilter.setValue(1024.0/perspectiveImage.extent.width, forKey: kCIInputScaleKey)
 
         delegate?.rectangleFound(rectangleContent: scaleFilter.outputImage!)
     }
