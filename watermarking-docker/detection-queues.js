@@ -220,6 +220,9 @@ module.exports = {
                 // Correlation matrix statistics
                 correlationStats: resultsJson.correlationStats || null,
 
+                // Whether this detection was from a captured screenshot or direct marked image
+                isCaptured: data.isCaptured ?? null,
+
                 // Store raw result for backward compatibility
                 rawResult: resultsJson
               };

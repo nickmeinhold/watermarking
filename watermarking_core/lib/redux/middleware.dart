@@ -206,7 +206,8 @@ void Function(Store<AppState> store, ActionSetUploadSuccess action,
         databaseService.addDetectingEntry(
             itemId: action.id,
             originalPath: selectedImagePath,
-            markedPath: 'detecting-images/${store.state.user.id}/${action.id}');
+            markedPath: 'detecting-images/${store.state.user.id}/${action.id}',
+            isCaptured: true);
       }
     } catch (exception) {
       // ignore: avoid_print
@@ -368,6 +369,7 @@ void Function(Store<AppState> store, ActionDetectMarkedImage action,
         itemId: action.markedImageId,
         originalPath: action.originalPath,
         markedPath: action.markedPath,
+        isCaptured: false,
       );
     } catch (error, trace) {
       store.dispatch(ActionAddProblem(
