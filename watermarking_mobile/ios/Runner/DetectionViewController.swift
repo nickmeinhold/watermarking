@@ -46,6 +46,12 @@ class DetectionViewController: UIViewController {
 		// Prevent the screen from being dimmed after a while.
 		UIApplication.shared.isIdleTimerDisabled = true
 
+        // Reset accumulator state for fresh detection
+        numCombined = 0
+        background = nil
+        foreground = nil
+        imageView.image = nil
+
         let configuration = ARImageTrackingConfiguration()
         configuration.maximumNumberOfTrackedImages = 1
         configuration.trackingImages = []
@@ -137,27 +143,10 @@ extension DetectionViewController: RectangleDetectorDelegate {
     /// Called when the app recognized a rectangular shape in the user's environment.
     /// - Tag: NewAlteredImage
     func rectangleFound(rectangleContent: CIImage) {
-
-        if background == nil {
-            background = rectangleContent.copy() as? CIImage
-        }
-        else {
-            background = accumulator.image()
-        }
-
-        numCombined += 1
-
-        // setup and apply the filter
-        filter.setValue(rectangleContent, forKey: kCIInputImageKey)
-        filter.setValue(background, forKey: kCIInputBackgroundImageKey)
-        filter.setValue(NSNumber(value: numCombined), forKey: kCIInputScaleKey)
-        accumulator.setImage(filter.outputImage!)
-
-        // display the new combine image
+        // Skip accumulation - just show the latest frame directly
         DispatchQueue.main.async {
-            self.imageView.image = UIImage.init(ciImage: self.accumulator.image())
+            self.imageView.image = UIImage.init(ciImage: rectangleContent)
         }
-
     }
 }
 
