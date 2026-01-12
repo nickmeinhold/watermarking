@@ -266,6 +266,7 @@ class DatabaseService {
     required String itemId,
     required String originalPath,
     required String markedPath,
+    required bool isCaptured,
   }) async {
     // Set detecting status
     await _db.collection('detecting').doc(userId).set({
@@ -274,6 +275,7 @@ class DatabaseService {
       'isDetecting': true,
       'pathOriginal': originalPath,
       'pathMarked': markedPath,
+      'isCaptured': isCaptured,
       'attempts': 0,
     });
 
@@ -285,6 +287,7 @@ class DatabaseService {
       'itemId': itemId,
       'pathOriginal': originalPath,
       'pathMarked': markedPath,
+      'isCaptured': isCaptured,
       'createdAt': FieldValue.serverTimestamp(),
     });
 
@@ -366,6 +369,7 @@ class DatabaseService {
               : null,
           detected: data['detected'] as bool?,
           statistics: statistics,
+          isCaptured: data['isCaptured'] as bool?,
           originalRef: data['originalRef'] != null
               ? OriginalImageReference(
                   filePath: data['originalRef']['remotePath']?.toString(),

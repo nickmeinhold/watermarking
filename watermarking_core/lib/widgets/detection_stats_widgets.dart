@@ -1232,12 +1232,14 @@ class DetectionResultCard extends StatelessWidget {
     required this.confidence,
     required this.detected,
     required this.imageWidget,
+    this.isCaptured,
   });
 
   final String? result;
   final double? confidence;
   final bool? detected;
   final Widget imageWidget;
+  final bool? isCaptured;
 
   @override
   Widget build(BuildContext context) {
@@ -1287,18 +1289,27 @@ class DetectionResultCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                  if (detected != null)
+                  if (detected != null || isCaptured != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
-                      child: Chip(
-                        label: Text(
-                          detected! ? 'Detected' : 'Not Detected',
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                        backgroundColor:
-                            detected! ? Colors.green.shade100 : Colors.red.shade100,
-                        padding: EdgeInsets.zero,
-                        visualDensity: VisualDensity.compact,
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: [
+                          if (detected != null)
+                            Chip(
+                              label: Text(
+                                detected! ? 'Detected' : 'Not Detected',
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                              backgroundColor:
+                                  detected! ? Colors.green.shade100 : Colors.red.shade100,
+                              padding: EdgeInsets.zero,
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          if (isCaptured != null)
+                            DetectionSourceChip(isCaptured: isCaptured),
+                        ],
                       ),
                     ),
                 ],
@@ -1433,6 +1444,35 @@ class ImagePlaceholder extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Chip showing whether detection was from captured screenshot or marked image directly.
+class DetectionSourceChip extends StatelessWidget {
+  const DetectionSourceChip({super.key, required this.isCaptured});
+  final bool? isCaptured;
+
+  @override
+  Widget build(BuildContext context) {
+    if (isCaptured == null) return const SizedBox.shrink();
+
+    final isCapture = isCaptured!;
+    return Chip(
+      avatar: Icon(
+        isCapture ? Icons.camera_alt : Icons.image,
+        size: 16,
+        color: isCapture ? Colors.blue : Colors.purple,
+      ),
+      label: Text(
+        isCapture ? 'Captured' : 'Direct',
+        style: const TextStyle(fontSize: 12),
+      ),
+      backgroundColor: isCapture
+          ? Colors.blue.withValues(alpha: 0.1)
+          : Colors.purple.withValues(alpha: 0.1),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
     );
   }
 }
