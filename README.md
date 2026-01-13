@@ -204,6 +204,14 @@ The `progress` field provides real-time feedback:
 | `original-images/{userId}/{fileName}` | Original uploaded images |
 | `marked-images/{userId}/{timestamp}/{fileName}.png` | Processed watermarked images |
 
+## Research
+
+For background on watermarking technologies, approaches, and recommendations:
+
+- **Research Document**: [RESEARCH.md](RESEARCH.md)
+- **Presentation**: [Digital Watermarking Research (Google Slides)](https://docs.google.com/presentation/d/1CNHhT0_A23Le6JcxErNutnbwufq4FGcfHpJ20eoXhGU/edit)
+
+
 ## Build Notes
 
 - **watermarking-docker** builds `watermarking-functions` from the sibling directory (managed via Docker build context context).
