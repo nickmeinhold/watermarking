@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_redux/flutter_redux.dart';
 import 'package:redux/redux.dart';
 import 'package:watermarking_core/watermarking_core.dart';
+import 'package:watermarking_mobile/main.dart' show kBypassAuth;
 
 import 'detection_card.dart';
 
@@ -10,7 +12,39 @@ class HomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const DetectionHistoryListView();
+    return Stack(
+      children: [
+        const DetectionHistoryListView(),
+        if (kBypassAuth)
+          Positioned(
+            bottom: 16,
+            right: 16,
+            child: FloatingActionButton.extended(
+              onPressed: () => _testDetection(context),
+              icon: const Icon(Icons.science),
+              label: const Text('Test Detection'),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _testDetection(BuildContext context) async {
+    const channel = MethodChannel('watermarking.enspyr.co/detect');
+    try {
+      final result = await channel.invokeMethod('startDetection', {'useMock': true});
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Detection result: $result')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 }
 

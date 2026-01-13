@@ -12,7 +12,7 @@ import co.enspyr.watermarking_mobile.detection.DetectionResult
 import co.enspyr.watermarking_mobile.detection.DetectionService
 import co.enspyr.watermarking_mobile.detection.MockDetectionService
 import co.enspyr.watermarking_mobile.detection.RealDetectionService
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import kotlinx.coroutines.CoroutineScope
@@ -29,7 +29,7 @@ import java.io.FileOutputStream
  * - Real mode: Uses OpenCV for actual detection (RealDetectionService)
  * - Mock mode: Returns fake results for testing (MockDetectionService)
  */
-class MainActivity : FlutterActivity() {
+class MainActivity : FlutterFragmentActivity() {
 
     companion object {
         private const val CHANNEL = "watermarking.enspyr.co/detect"

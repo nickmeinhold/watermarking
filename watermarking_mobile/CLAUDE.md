@@ -23,16 +23,37 @@ flutter run -d android
 cd android && ./gradlew connectedAndroidTest
 ```
 
-### Mock Mode (Android)
+### Test Mode (Android)
 
-Toggle in `MainActivity.kt:42`:
+Two flags control test/development mode:
+
+**1. Auth Bypass** - Skip Firebase authentication (`lib/main.dart`):
+```dart
+const bool kBypassAuth = true;  // Skips Google Sign-In, shows TestModeAppWidget
+```
+
+**2. Mock Detection** - Skip OpenCV (`MainActivity.kt:42`):
 ```kotlin
-private const val USE_MOCK_DETECTION = true  // false for OpenCV
+private const val USE_MOCK_DETECTION = true  // false for real OpenCV
 ```
 
 Or from Flutter at runtime:
 ```dart
 await methodChannel.invokeMethod('setMockMode', {'enabled': true});
+```
+
+### Build APK
+
+```bash
+# Debug build
+flutter build apk --debug
+
+# Release build
+flutter build apk --release
+# Output: build/app/outputs/flutter-apk/app-release.apk
+
+# Install on connected device
+adb install build/app/outputs/flutter-apk/app-release.apk
 ```
 
 ## Architecture
@@ -75,11 +96,19 @@ Real    Mock
 
 See `MODULE_STRUCTURE.md` for detailed diagrams and `KNOWN_ISSUES.md` for limitations.
 
+### Flutter Test Mode UI
+
+When `kBypassAuth = true`, the app shows `TestModeAppWidget` (`lib/views/app.dart`) which:
+- Bypasses Firebase entirely
+- Provides standalone gallery → detect → show result flow
+- Stores results locally (not in Firebase)
+- Uses Material 3 design
+
 ### Android Files
 
 ```
 android/app/src/main/kotlin/co/enspyr/watermarking_mobile/
-├── MainActivity.kt              # Method channel, orchestration
+├── MainActivity.kt              # Method channel, orchestration (extends FlutterFragmentActivity)
 └── detection/
     ├── DetectionService.kt      # Interface
     ├── RealDetectionService.kt  # OpenCV implementation
