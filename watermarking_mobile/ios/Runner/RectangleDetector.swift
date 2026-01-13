@@ -12,7 +12,7 @@ import CoreImage
 /// - Tag: RectangleDetector
 class RectangleDetector {
 
-    private var currentCameraImage: CVPixelBuffer!
+    private var currentCameraImage: CVPixelBuffer?
 
     private var updateTimer: Timer?
 
@@ -91,16 +91,21 @@ class RectangleDetector {
         }
         // Only proceed if a rectangular image was detected.
         guard let rectangle = request?.results?.first as? VNRectangleObservation else {
-            guard let error = error else { return }
-            print("Error: Rectangle detection failed - Vision request returned an error. \(error.localizedDescription)")
+            if let error = error {
+                print("Error: Rectangle detection failed - Vision error: \(error.localizedDescription)")
+            }
             return
         }
         guard let filter = CIFilter(name: "CIPerspectiveCorrection") else {
             print("Error: Rectangle detection failed - Could not create perspective correction filter.")
             return
         }
-        let width = CGFloat(CVPixelBufferGetWidth(currentCameraImage))
-        let height = CGFloat(CVPixelBufferGetHeight(currentCameraImage))
+        guard let cameraImage = currentCameraImage else {
+            print("Error: Rectangle detection failed - No camera image available.")
+            return
+        }
+        let width = CGFloat(CVPixelBufferGetWidth(cameraImage))
+        let height = CGFloat(CVPixelBufferGetHeight(cameraImage))
         let topLeft = CGPoint(x: rectangle.topLeft.x * width, y: rectangle.topLeft.y * height)
         let topRight = CGPoint(x: rectangle.topRight.x * width, y: rectangle.topRight.y * height)
         let bottomLeft = CGPoint(x: rectangle.bottomLeft.x * width, y: rectangle.bottomLeft.y * height)
@@ -111,7 +116,7 @@ class RectangleDetector {
         filter.setValue(CIVector(cgPoint: bottomLeft), forKey: "inputBottomLeft")
         filter.setValue(CIVector(cgPoint: bottomRight), forKey: "inputBottomRight")
 
-        let ciImage = CIImage(cvPixelBuffer: currentCameraImage).oriented(.up)
+        let ciImage = CIImage(cvPixelBuffer: cameraImage).oriented(.up)
         filter.setValue(ciImage, forKey: kCIInputImageKey)
 
         guard let perspectiveImage: CIImage = filter.value(forKey: kCIOutputImageKey) as? CIImage else {
@@ -124,9 +129,13 @@ class RectangleDetector {
             return
         }
         scaleFilter.setValue(perspectiveImage.oriented(.right), forKey: kCIInputImageKey)
-        scaleFilter.setValue(1024.0/perspectiveImage.extent.width, forKey: kCIInputScaleKey)
+        scaleFilter.setValue(1024.0 / perspectiveImage.extent.width, forKey: kCIInputScaleKey)
 
-        delegate?.rectangleFound(rectangleContent: scaleFilter.outputImage!)
+        guard let outputImage = scaleFilter.outputImage else {
+            print("Error: Rectangle detection failed - scale filter has no output image.")
+            return
+        }
+        delegate?.rectangleFound(rectangleContent: outputImage)
     }
 }
 
