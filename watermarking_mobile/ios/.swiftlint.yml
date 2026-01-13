@@ -1,0 +1,46 @@
+# SwiftLint Configuration for Watermarking iOS
+
+included:
+  - Runner
+
+excluded:
+  - Pods
+  - .symlinks
+
+# Rules configuration
+disabled_rules:
+  - todo # Allow TODOs in code
+  - identifier_name # Allow short variable names like i, v for loops
+
+opt_in_rules:
+  - empty_count
+  - closure_spacing
+  - force_unwrapping
+  - implicitly_unwrapped_optional
+
+# Rule customization
+line_length:
+  warning: 120
+  error: 200
+  ignores_comments: true
+  ignores_urls: true
+
+type_body_length:
+  warning: 300
+  error: 500
+
+file_length:
+  warning: 500
+  error: 1000
+
+function_body_length:
+  warning: 50
+  error: 100
+
+cyclomatic_complexity:
+  warning: 15
+  error: 25
+
+nesting:
+  type_level: 3
+  function_level: 5

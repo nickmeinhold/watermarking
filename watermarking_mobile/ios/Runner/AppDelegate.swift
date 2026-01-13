@@ -14,15 +14,20 @@ enum ChannelName {
 
     GeneratedPluginRegistrant.register(with: self)
 
-    CIFilter.registerName("WeightedCombine", constructor: CustomFiltersVendor(), classAttributes: [kCIAttributeFilterCategories: [kCICategoryVideo, kCICategoryStillImage]])
+    CIFilter.registerName(
+        "WeightedCombine",
+        constructor: CustomFiltersVendor(),
+        classAttributes: [kCIAttributeFilterCategories: [kCICategoryVideo, kCICategoryStillImage]]
+    )
 
     guard let controller = window?.rootViewController as? FlutterViewController else {
         fatalError("rootViewController is not type FlutterViewController")
     }
-    let detectChannel = FlutterMethodChannel(name: ChannelName.detect, binaryMessenger: controller.binaryMessenger)
-    detectChannel.setMethodCallHandler({
-        [weak self] (call: FlutterMethodCall, result: @escaping FlutterResult) -> Void in
-
+    let detectChannel = FlutterMethodChannel(
+        name: ChannelName.detect,
+        binaryMessenger: controller.binaryMessenger
+    )
+    detectChannel.setMethodCallHandler { [weak self] (call: FlutterMethodCall, result: @escaping FlutterResult) in
         if call.method == "dismiss" {
             self?.window?.rootViewController?.dismiss(animated: false, completion: nil)
             return
@@ -44,14 +49,20 @@ enum ChannelName {
 
         // navigate to DetectionViewController
         let storyboard = UIStoryboard(name: "Main", bundle: nil)
-        guard let viewController = storyboard.instantiateViewController(withIdentifier: "DetectionVC") as? DetectionViewController else {
-            result(FlutterError(code: "VC_ERROR", message: "Could not instantiate DetectionViewController", details: nil))
+        guard let viewController = storyboard.instantiateViewController(
+            withIdentifier: "DetectionVC"
+        ) as? DetectionViewController else {
+            result(FlutterError(
+                code: "VC_ERROR",
+                message: "Could not instantiate DetectionViewController",
+                details: nil
+            ))
             return
         }
         viewController.result = result
         controller.present(viewController, animated: true, completion: nil)
 
-    })
+    }
 
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }

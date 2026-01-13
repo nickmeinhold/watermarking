@@ -19,17 +19,23 @@ class DetectionViewController: UIViewController {
 
     var result: FlutterResult?
 
-    let filter: CIFilter = CIFilter(name: "WeightedCombine")!
-    var foreground: CIImage? = nil
-    var background: CIImage? = nil
+    var filter: CIFilter?
+    var foreground: CIImage?
+    var background: CIImage?
     var numCombined: Int = 0
-    let accumulator: CIImageAccumulator = CIImageAccumulator(extent: CGRect(x: 0, y: 0, width: 512, height: 512), format: CIFormat.ARGB8)!
+    var accumulator: CIImageAccumulator?
 
     /// An object that detects rectangular shapes in the user's environment.
     let rectangleDetector = RectangleDetector()
 
     override func viewDidLoad() {
         super.viewDidLoad()
+
+        filter = CIFilter(name: "WeightedCombine")
+        accumulator = CIImageAccumulator(
+            extent: CGRect(x: 0, y: 0, width: 512, height: 512),
+            format: CIFormat.ARGB8
+        )
 
         rectangleDetector.delegate = self
         sceneView.delegate = self
@@ -94,12 +100,15 @@ extension DetectionViewController: ARSCNViewDelegate {
         ]
 
         // Use `compactMap(_:)` to remove optional error messages.
-        let errorMessage = messages.compactMap({ $0 }).joined(separator: "\n")
+        let errorMessage = messages.compactMap { $0 }.joined(separator: "\n")
 
         DispatchQueue.main.async {
-
             // Present an alert informing about the error that just occurred.
-            let alertController = UIAlertController(title: "The AR session failed.", message: errorMessage, preferredStyle: .alert)
+            let alertController = UIAlertController(
+                title: "The AR session failed.",
+                message: errorMessage,
+                preferredStyle: .alert
+            )
             let restartAction = UIAlertAction(title: "Restart Session", style: .default) { _ in
                 alertController.dismiss(animated: true, completion: nil)
             }
@@ -108,7 +117,7 @@ extension DetectionViewController: ARSCNViewDelegate {
         }
     }
 
-    //Action
+    // Action
     @objc func tapDetected() {
         guard let originalImage = imageView.image else {
             result?(FlutterError(code: "SAVE_ERROR", message: "No image to save", details: nil))
@@ -117,7 +126,7 @@ extension DetectionViewController: ARSCNViewDelegate {
 
         // Use UIGraphicsImageRenderer for modern image drawing
         let renderer = UIGraphicsImageRenderer(size: originalImage.size)
-        let newImage = renderer.image { context in
+        let newImage = renderer.image { _ in
             originalImage.draw(in: CGRect(origin: .zero, size: originalImage.size))
         }
 
@@ -129,12 +138,21 @@ extension DetectionViewController: ARSCNViewDelegate {
         }
 
         do {
-            let directory = try FileManager.default.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
+            let directory = try FileManager.default.url(
+                for: .documentDirectory,
+                in: .userDomainMask,
+                appropriateFor: nil,
+                create: false
+            )
             let fileURL = directory.appendingPathComponent(fileName)
             try data.write(to: fileURL)
             result?(fileURL.path)
         } catch {
-            result?(FlutterError(code: "SAVE_ERROR", message: "Failed to write image data", details: error.localizedDescription))
+            result?(FlutterError(
+                code: "SAVE_ERROR",
+                message: "Failed to write image data",
+                details: error.localizedDescription
+            ))
         }
     }
 }
@@ -171,7 +189,7 @@ extension UIImage {
 
     private func copyOriginalImage() -> UIImage? {
         let renderer = UIGraphicsImageRenderer(size: self.size)
-        return renderer.image { context in
+        return renderer.image { _ in
             self.draw(in: CGRect(origin: .zero, size: self.size))
         }
     }
