@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_redux/flutter_redux.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -121,16 +123,34 @@ class AppWidget extends StatelessWidget {
           if (viewModel.selectedImage == null) {
             return const SizedBox.shrink();
           }
-          return FloatingActionButton(
-            key: const Key('ScanFAB'),
-            onPressed: () {
-              StoreProvider.of<AppState>(context).dispatch(
-                  ActionPerformExtraction(
-                      width: viewModel.selectedWidth ?? 512,
-                      height: viewModel.selectedHeight ?? 512));
-            },
-            tooltip: 'Scan',
-            child: const Icon(Icons.search),
+          return Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              FloatingActionButton(
+                key: const Key('GalleryFAB'),
+                heroTag: 'gallery',
+                onPressed: () {
+                  // TODO: Implement gallery picker for detection
+                },
+                tooltip: 'Gallery',
+                child: const Icon(Icons.photo_library),
+              ),
+              const SizedBox(width: 16),
+              FloatingActionButton(
+                key: const Key('CameraFAB'),
+                heroTag: 'camera',
+                onPressed: Platform.isIOS
+                    ? () {
+                        StoreProvider.of<AppState>(context).dispatch(
+                            ActionPerformExtraction(
+                                width: viewModel.selectedWidth ?? 512,
+                                height: viewModel.selectedHeight ?? 512));
+                      }
+                    : null,
+                tooltip: 'Camera',
+                child: const Icon(Icons.camera_alt),
+              ),
+            ],
           );
         },
       ),
