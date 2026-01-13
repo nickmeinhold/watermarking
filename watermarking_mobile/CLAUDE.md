@@ -23,16 +23,9 @@ flutter run -d android
 cd android && ./gradlew connectedAndroidTest
 ```
 
-### Test Mode (Android)
+### Mock Detection (Android)
 
-Two flags control test/development mode:
-
-**1. Auth Bypass** - Skip Firebase authentication (`lib/main.dart`):
-```dart
-const bool kBypassAuth = true;  // Skips Google Sign-In, shows TestModeAppWidget
-```
-
-**2. Mock Detection** - Skip OpenCV (`MainActivity.kt:42`):
+Toggle mock detection in `MainActivity.kt:42`:
 ```kotlin
 private const val USE_MOCK_DETECTION = true  // false for real OpenCV
 ```
@@ -95,14 +88,6 @@ Real    Mock
 ```
 
 See `MODULE_STRUCTURE.md` for detailed diagrams and `KNOWN_ISSUES.md` for limitations.
-
-### Flutter Test Mode UI
-
-When `kBypassAuth = true`, the app shows `TestModeAppWidget` (`lib/views/app.dart`) which:
-- Bypasses Firebase entirely
-- Provides standalone gallery → detect → show result flow
-- Stores results locally (not in Firebase)
-- Uses Material 3 design
 
 ### Android Files
 
