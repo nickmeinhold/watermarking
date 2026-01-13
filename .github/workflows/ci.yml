@@ -108,6 +108,12 @@ jobs:
           cd watermarking_mobile/ios
           pod install
 
+      - name: Lint Swift code with SwiftLint
+        run: |
+          brew install swiftlint
+          cd watermarking_mobile/ios
+          swiftlint lint Runner/ --strict
+
       - name: Analyze Swift code
         run: |
           cd watermarking_mobile/ios
