@@ -11,6 +11,9 @@ cd watermarking_webapp && flutter pub get && flutter run -d chrome
 # iOS App (requires physical device)
 cd watermarking_mobile && flutter pub get && cd ios && pod update && cd .. && flutter run
 
+# Android App (test mode - no Firebase required)
+cd watermarking_mobile && flutter pub get && flutter run -d android
+
 # Backend (Docker)
 cd watermarking-docker
 docker buildx build --platform linux/amd64 -f Dockerfile.cloudrun \
@@ -19,6 +22,21 @@ gcloud run deploy watermarking-backend \
   --image gcr.io/watermarking-4a428/watermarking-cloudrun:latest \
   --region us-central1 --project watermarking-4a428
 ```
+
+## Development Mode (Mobile App)
+
+The mobile app supports a standalone test mode that bypasses Firebase for local development:
+
+**Auth Bypass** (`watermarking_mobile/lib/main.dart`):
+```dart
+const bool kBypassAuth = true;  // Skip Google Sign-In
+```
+
+When enabled, the app shows `TestModeAppWidget` which provides:
+- Standalone gallery → detect → display results flow
+- Local-only storage (no Firebase uploads)
+- Material 3 theming with `ColorScheme.fromSeed(seedColor: Colors.amber)`
+- Useful for testing detection pipeline without backend
 
 ## Overview
 
