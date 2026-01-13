@@ -6,8 +6,9 @@ import 'package:watermarking_mobile/services/mobile_device_service.dart';
 import 'package:watermarking_mobile/views/app.dart';
 import 'firebase_options.dart';
 
-// Set to true to bypass Google Sign-In for testing
-const bool kBypassAuth = true;
+// Set to true to bypass Google Sign-In for local testing only
+// IMPORTANT: Must be false before merging to main
+const bool kBypassAuth = false;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
