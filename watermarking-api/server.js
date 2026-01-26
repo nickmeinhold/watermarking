@@ -2,6 +2,7 @@
 // Watermarking REST API with SSE progress streaming
 
 const express = require('express');
+const cors = require('cors');
 const multer = require('multer');
 const rateLimit = require('express-rate-limit');
 const { v4: uuidv4 } = require('uuid');
@@ -22,6 +23,15 @@ if (!API_KEY) {
   console.error('ERROR: API_KEY environment variable is required');
   process.exit(1);
 }
+
+// CORS configuration
+const corsOptions = {
+  origin: process.env.CORS_ORIGIN || '*',
+  methods: ['GET', 'POST'],
+  allowedHeaders: ['Content-Type', 'X-API-Key'],
+  exposedHeaders: ['Content-Disposition'],
+};
+app.use(cors(corsOptions));
 
 // In-memory job storage
 const jobs = new Map();
