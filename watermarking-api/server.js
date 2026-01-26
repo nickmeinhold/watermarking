@@ -3,6 +3,7 @@
 
 const express = require('express');
 const multer = require('multer');
+const rateLimit = require('express-rate-limit');
 const { v4: uuidv4 } = require('uuid');
 const { spawn } = require('child_process');
 const fs = require('fs');
@@ -43,6 +44,18 @@ setInterval(() => {
     }
   }
 }, 60 * 1000); // Check every minute
+
+// Rate limiting for watermark endpoint (10 requests per minute per API key)
+const watermarkLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: parseInt(process.env.RATE_LIMIT_MAX, 10) || 10,
+  keyGenerator: (req) => req.headers['x-api-key'] || req.ip,
+  handler: (req, res) => {
+    res.status(429).json({ error: 'Too many requests. Please try again later.' });
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // Configure multer for file uploads
 const upload = multer({
@@ -104,7 +117,7 @@ function parseProgress(line) {
 }
 
 // Watermark endpoint with SSE streaming
-app.post('/watermark', authenticateApiKey, upload.single('image'), async (req, res) => {
+app.post('/watermark', watermarkLimiter, authenticateApiKey, upload.single('image'), async (req, res) => {
   // Validate required fields
   if (!req.file) {
     return res.status(400).json({ error: 'Missing required field: image' });
