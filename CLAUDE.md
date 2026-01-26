@@ -8,16 +8,24 @@ Digital watermarking system for embedding and detecting invisible messages in im
                       Firebase: watermarking-4a428
                     (Cloud Firestore + Storage + Auth)
                                     |
-            +-----------------------+-----------------------+
-            |                       |                       |
-   watermarking_mobile      watermarking_webapp    watermarking-docker
-      (Flutter/iOS)           (Flutter Web)         (Node.js + C++)
-            |                       |                       |
-      Local rectangle          Web interface          Backend processing
-      detection + upload       for management         mark & detect engines
-                                                            |
-                                                   watermarking-functions
-                                                       (C++ library)
+       +----------------------------+----------------------------+
+       |                            |                            |
+watermarking_mobile         watermarking_webapp          watermarking-docker
+   (Flutter/iOS)              (Flutter Web)               (Node.js + C++)
+       |                            |                            |
+ Local rectangle               Web interface             Backend processing
+ detection + upload            for management            mark & detect engines
+                                                                 |
+                                                        watermarking-functions
+                                                            (C++ library)
+                                                                 |
+                                    +----------------------------+
+                                    |
+                             watermarking-api
+                              (Cloud Run API)
+                                    |
+                            REST API for external
+                            watermarking requests
 ```
 
 ## Projects
@@ -28,7 +36,8 @@ Digital watermarking system for embedding and detecting invisible messages in im
 | `watermarking_mobile/` | Mobile app - captures images, detects rectangles (iOS only), uploads for processing | Flutter, ARKit, Vision Framework, Metal |
 | `watermarking_webapp/` | Web interface - upload originals, view marked images, trigger detection | Flutter Web, Firebase, Material 3 |
 | `watermarking-docker/` | Backend - queue-based processing, runs C++ mark/detect binaries | Node.js, Docker, Firebase Queue |
-| `watermarking-functions/` | Core algorithms - DFT-based watermark embedding/extraction | C++, OpenCV |
+| `watermarking-api/` | REST API - standalone watermarking service with SSE progress streaming | Node.js, Express, Docker, Cloud Run |
+| `watermarking-functions/` | Core algorithms - DFT-based watermark embedding/extraction | C++, OpenCV, Boost |
 
 ## Detection Flow
 
@@ -242,6 +251,93 @@ The `progress` field provides real-time feedback:
 | `original-images/{userId}/{fileName}` | Original uploaded images |
 | `marked-images/{userId}/{timestamp}/{fileName}.png` | Processed watermarked images |
 
+## REST API (watermarking-api)
+
+Standalone REST API for watermarking images, deployed on Cloud Run.
+
+**Service URL:** `https://watermarking-api-78940960204.us-central1.run.app`
+
+### API Endpoints
+
+#### POST /watermark
+
+Watermark an image with SSE progress streaming.
+
+**Request:**
+- Header: `X-API-Key: <api-key>`
+- Content-Type: `multipart/form-data`
+- Body:
+  - `image` (required): PNG or JPG file
+  - `message` (required): Text to embed
+  - `strength` (optional): 1-100, default 10
+
+**Response (SSE stream):**
+```
+data: {"progress":"Loading image...","percent":10}
+data: {"progress":"Embedding watermark (1/5)","percent":24}
+data: {"progress":"Embedding watermark (2/5)","percent":38}
+data: {"progress":"Compressing image...","percent":90}
+data: {"complete":true,"downloadUrl":"/download/{jobId}"}
+```
+
+#### GET /download/{jobId}
+
+Download the watermarked image (available for 5 minutes).
+
+**Request:**
+- Header: `X-API-Key: <api-key>`
+
+**Response:** `image/png`
+
+#### GET /health
+
+Health check (no auth required).
+
+**Response:** `{"status":"ok"}`
+
+### Example Usage
+
+```bash
+# Watermark an image
+curl -N https://watermarking-api-78940960204.us-central1.run.app/watermark \
+  -H "X-API-Key: YOUR_API_KEY" \
+  -F "image=@photo.png" \
+  -F "message=SecretMessage" \
+  -F "strength=15"
+
+# Download result
+curl https://watermarking-api-78940960204.us-central1.run.app/download/{jobId} \
+  -H "X-API-Key: YOUR_API_KEY" \
+  -o watermarked.png
+```
+
+### Environment Variables
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `API_KEY` | Yes | - | API key for authentication |
+| `PORT` | No | 8080 | Server port |
+| `DEFAULT_STRENGTH` | No | 10 | Default watermark strength |
+| `RATE_LIMIT_MAX` | No | 10 | Max requests per minute per API key |
+| `CORS_ORIGIN` | No | * | Allowed CORS origin |
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `server.js` | Express server with SSE streaming, auth, rate limiting |
+| `Dockerfile` | Multi-stage build (C++ compile + Node.js runtime) |
+| `build.sh` | Copies C++ sources and builds Docker image |
+
+### Deployment
+
+```bash
+cd watermarking-api
+./build.sh
+docker build --platform linux/amd64 -t watermarking-api .
+# Push to Artifact Registry and deploy to Cloud Run
+```
+
 ## Shared Core Package
 
 `watermarking_core/` is a Flutter package shared between mobile and web apps.
@@ -299,6 +395,7 @@ Active development. iOS-first project with functional web and backend components
 
 ### Recent Updates (Jan 2026)
 
+- **REST API**: New standalone watermarking API deployed on Cloud Run with SSE progress streaming, API key auth, rate limiting, and CORS support
 - **Shared Visualization Widgets**: Detection statistics charts moved to `watermarking_core` for reuse across mobile and web
 - **Web Detection Details**: Click detection history items to view full statistics in a dialog with responsive two-column layout
 - **Extended Detection Statistics**: C++ detection now outputs comprehensive stats (timing, per-sequence PSNR, correlation matrix stats, peak positions)
