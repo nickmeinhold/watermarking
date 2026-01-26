@@ -1,0 +1,12 @@
+# Dependencies
+node_modules/
+
+# Environment
+.env
+
+# OS files
+.DS_Store
+
+# Build artifacts (copied from sibling directories for Docker build)
+watermarking-functions/
+mark.cpp
