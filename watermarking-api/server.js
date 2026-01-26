@@ -6,7 +6,6 @@ const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
 const { spawn } = require('child_process');
 const fs = require('fs');
-const path = require('path');
 
 const app = express();
 
@@ -52,7 +51,7 @@ const upload = multer({
     fileSize: 50 * 1024 * 1024, // 50MB limit
   },
   fileFilter: (req, file, cb) => {
-    const allowedMimes = ['image/png', 'image/jpeg', 'image/jpg'];
+    const allowedMimes = ['image/png', 'image/jpeg'];
     if (allowedMimes.includes(file.mimetype)) {
       cb(null, true);
     } else {
