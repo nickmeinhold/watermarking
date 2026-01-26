@@ -15,6 +15,7 @@ RUN apt-get update && apt-get install -y \
     cmake \
     pkg-config \
     libopencv-dev \
+    libboost-all-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build
