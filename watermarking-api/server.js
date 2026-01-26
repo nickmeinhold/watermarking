@@ -7,6 +7,7 @@ const rateLimit = require('express-rate-limit');
 const { v4: uuidv4 } = require('uuid');
 const { spawn } = require('child_process');
 const fs = require('fs');
+const crypto = require('crypto');
 
 const app = express();
 
@@ -73,6 +74,21 @@ const upload = multer({
   }
 });
 
+// Timing-safe string comparison to prevent timing attacks
+function timingSafeEqual(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') {
+    return false;
+  }
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) {
+    // Compare against itself to maintain constant time even when lengths differ
+    crypto.timingSafeEqual(bufA, bufA);
+    return false;
+  }
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
 // API key authentication middleware
 function authenticateApiKey(req, res, next) {
   const apiKey = req.headers['x-api-key'];
@@ -81,7 +97,7 @@ function authenticateApiKey(req, res, next) {
     return res.status(401).json({ error: 'Missing X-API-Key header' });
   }
 
-  if (apiKey !== API_KEY) {
+  if (!timingSafeEqual(apiKey, API_KEY)) {
     return res.status(401).json({ error: 'Invalid API key' });
   }
 
