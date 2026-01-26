@@ -2,11 +2,13 @@
 // Watermarking REST API with SSE progress streaming
 
 const express = require('express');
+const cors = require('cors');
 const multer = require('multer');
+const rateLimit = require('express-rate-limit');
 const { v4: uuidv4 } = require('uuid');
 const { spawn } = require('child_process');
 const fs = require('fs');
-const path = require('path');
+const crypto = require('crypto');
 
 const app = express();
 
@@ -21,6 +23,15 @@ if (!API_KEY) {
   console.error('ERROR: API_KEY environment variable is required');
   process.exit(1);
 }
+
+// CORS configuration
+const corsOptions = {
+  origin: process.env.CORS_ORIGIN || '*',
+  methods: ['GET', 'POST'],
+  allowedHeaders: ['Content-Type', 'X-API-Key'],
+  exposedHeaders: ['Content-Disposition'],
+};
+app.use(cors(corsOptions));
 
 // In-memory job storage
 const jobs = new Map();
@@ -45,6 +56,18 @@ setInterval(() => {
   }
 }, 60 * 1000); // Check every minute
 
+// Rate limiting for watermark endpoint (10 requests per minute per API key)
+const watermarkLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: parseInt(process.env.RATE_LIMIT_MAX, 10) || 10,
+  keyGenerator: (req) => req.headers['x-api-key'] || req.ip,
+  handler: (req, res) => {
+    res.status(429).json({ error: 'Too many requests. Please try again later.' });
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Configure multer for file uploads
 const upload = multer({
   dest: '/tmp/uploads/',
@@ -52,7 +75,7 @@ const upload = multer({
     fileSize: 50 * 1024 * 1024, // 50MB limit
   },
   fileFilter: (req, file, cb) => {
-    const allowedMimes = ['image/png', 'image/jpeg', 'image/jpg'];
+    const allowedMimes = ['image/png', 'image/jpeg'];
     if (allowedMimes.includes(file.mimetype)) {
       cb(null, true);
     } else {
@@ -60,6 +83,21 @@ const upload = multer({
     }
   }
 });
+
+// Timing-safe string comparison to prevent timing attacks
+function timingSafeEqual(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') {
+    return false;
+  }
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) {
+    // Compare against itself to maintain constant time even when lengths differ
+    crypto.timingSafeEqual(bufA, bufA);
+    return false;
+  }
+  return crypto.timingSafeEqual(bufA, bufB);
+}
 
 // API key authentication middleware
 function authenticateApiKey(req, res, next) {
@@ -69,7 +107,7 @@ function authenticateApiKey(req, res, next) {
     return res.status(401).json({ error: 'Missing X-API-Key header' });
   }
 
-  if (apiKey !== API_KEY) {
+  if (!timingSafeEqual(apiKey, API_KEY)) {
     return res.status(401).json({ error: 'Invalid API key' });
   }
 
@@ -105,7 +143,7 @@ function parseProgress(line) {
 }
 
 // Watermark endpoint with SSE streaming
-app.post('/watermark', authenticateApiKey, upload.single('image'), async (req, res) => {
+app.post('/watermark', watermarkLimiter, authenticateApiKey, upload.single('image'), async (req, res) => {
   // Validate required fields
   if (!req.file) {
     return res.status(400).json({ error: 'Missing required field: image' });
