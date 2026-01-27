@@ -22,6 +22,7 @@ WORKDIR /build
 
 # Copy C++ source files
 COPY mark.cpp /build/mark.cpp
+COPY detect.cpp /build/detect.cpp
 COPY watermarking-functions /build/watermarking-functions
 
 # Compile the marking program
@@ -32,6 +33,15 @@ RUN g++ mark.cpp -std=c++11 \
     -L/usr/lib/x86_64-linux-gnu \
     -lopencv_core -lopencv_imgcodecs -lopencv_imgproc \
     -o mark-image
+
+# Compile the detection program
+RUN g++ detect.cpp -std=c++11 \
+    watermarking-functions/WatermarkDetection.cpp \
+    watermarking-functions/Utilities.cpp \
+    -I. -I/usr/include -I/usr/include/opencv4 \
+    -L/usr/lib/x86_64-linux-gnu \
+    -lopencv_core -lopencv_imgcodecs -lopencv_imgproc \
+    -o detect-image
 
 # =============================================================================
 # Stage 2: Runtime with Node.js
@@ -56,8 +66,9 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Copy compiled binary from builder
+# Copy compiled binaries from builder
 COPY --from=builder /build/mark-image /app/mark-image
+COPY --from=builder /build/detect-image /app/detect-image
 
 # Copy Node.js package files and install dependencies
 COPY package.json /app/package.json

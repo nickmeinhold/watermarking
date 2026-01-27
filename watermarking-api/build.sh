@@ -9,8 +9,9 @@ PARENT_DIR="$(dirname "$SCRIPT_DIR")"
 
 echo "Copying C++ source files..."
 
-# Copy mark.cpp from watermarking-docker
+# Copy mark.cpp and detect.cpp from watermarking-docker
 cp "$PARENT_DIR/watermarking-docker/mark.cpp" "$SCRIPT_DIR/"
+cp "$PARENT_DIR/watermarking-docker/detect.cpp" "$SCRIPT_DIR/"
 
 # Copy watermarking-functions directory
 rm -rf "$SCRIPT_DIR/watermarking-functions"
