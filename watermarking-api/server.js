@@ -112,6 +112,34 @@ const uploadDetect = multer({
   }
 });
 
+// Helper to safely delete a file if it exists
+function safeUnlink(filePath, jobId = null) {
+  if (filePath && fs.existsSync(filePath)) {
+    try {
+      fs.unlinkSync(filePath);
+    } catch (err) {
+      const prefix = jobId ? `[${jobId}] ` : '';
+      console.error(`${prefix}Error cleaning up file ${filePath}:`, err);
+    }
+  }
+}
+
+// Helper to clean up uploaded files from a request
+function cleanupUploadedFiles(req, jobId = null) {
+  // Single file upload (e.g., /watermark endpoint)
+  if (req.file && req.file.path) {
+    safeUnlink(req.file.path, jobId);
+  }
+  // Multiple file upload (e.g., /detect endpoint)
+  if (req.files) {
+    Object.values(req.files).flat().forEach(f => {
+      if (f && f.path) {
+        safeUnlink(f.path, jobId);
+      }
+    });
+  }
+}
+
 // Timing-safe string comparison to prevent timing attacks
 function timingSafeEqual(a, b) {
   if (typeof a !== 'string' || typeof b !== 'string') {
@@ -172,11 +200,29 @@ function parseMarkProgress(line) {
 
 // Parse progress from C++ detection binary stdout
 function parseDetectProgress(line) {
-  if (line.startsWith('PROGRESS:')) {
-    const msg = line.substring(9).trim();
-    return { progress: msg, percent: 50 }; // Detection progress is less predictable
+  if (!line.startsWith('PROGRESS:')) {
+    return null;
   }
-  return null;
+
+  const msg = line.substring(9).trim();
+
+  // Parse "Extracting watermark from frequency domain..."
+  if (msg.includes('Extracting watermark')) {
+    return { progress: msg, percent: 20 };
+  }
+
+  // Parse "Analyzing sequence N..." - estimate progress based on sequence number
+  // Typical messages have 5-15 characters, so sequences usually go up to ~10-15
+  const seqMatch = msg.match(/Analyzing sequence (\d+)/);
+  if (seqMatch) {
+    const seqNum = parseInt(seqMatch[1], 10);
+    // Progress from 30% to 90% based on sequence (assume max ~15 sequences)
+    const percent = Math.min(90, 30 + seqNum * 4);
+    return { progress: msg, percent };
+  }
+
+  // Default for other progress messages
+  return { progress: msg, percent: 50 };
 }
 
 // Watermark endpoint with SSE streaming
@@ -187,10 +233,7 @@ app.post('/watermark', watermarkLimiter, authenticateApiKey, upload.single('imag
   }
 
   if (!req.body.message) {
-    // Clean up uploaded file
-    if (req.file && req.file.path) {
-      fs.unlinkSync(req.file.path);
-    }
+    cleanupUploadedFiles(req);
     return res.status(400).json({ error: 'Missing required field: message' });
   }
 
@@ -199,9 +242,7 @@ app.post('/watermark', watermarkLimiter, authenticateApiKey, upload.single('imag
 
   // Validate strength range
   if (strength < 1 || strength > 100) {
-    if (req.file && req.file.path) {
-      fs.unlinkSync(req.file.path);
-    }
+    cleanupUploadedFiles(req);
     return res.status(400).json({ error: 'Strength must be between 1 and 100' });
   }
 
@@ -251,13 +292,7 @@ app.post('/watermark', watermarkLimiter, authenticateApiKey, upload.single('imag
 
   markProcess.on('close', (code) => {
     // Clean up input file
-    try {
-      if (fs.existsSync(inputPath)) {
-        fs.unlinkSync(inputPath);
-      }
-    } catch (err) {
-      console.error(`[${jobId}] Error cleaning up input file:`, err);
-    }
+    safeUnlink(inputPath, jobId);
 
     if (code === 0) {
       const markedImagePath = `${inputPath}-marked.png`;
@@ -287,15 +322,7 @@ app.post('/watermark', watermarkLimiter, authenticateApiKey, upload.single('imag
     console.error(`[${jobId}] Process error:`, err);
     sendEvent({ error: 'Failed to start processing' });
     res.end();
-
-    // Clean up input file
-    try {
-      if (fs.existsSync(inputPath)) {
-        fs.unlinkSync(inputPath);
-      }
-    } catch (cleanupErr) {
-      console.error(`[${jobId}] Error cleaning up input file:`, cleanupErr);
-    }
+    safeUnlink(inputPath, jobId);
   });
 
   // Handle client disconnect
@@ -315,26 +342,12 @@ app.post('/detect', detectLimiter, authenticateApiKey, uploadDetect.fields([
 ]), async (req, res) => {
   // Validate required fields
   if (!req.files || !req.files.original || !req.files.original[0]) {
-    // Clean up any uploaded files
-    if (req.files) {
-      Object.values(req.files).flat().forEach(f => {
-        if (f && f.path && fs.existsSync(f.path)) {
-          fs.unlinkSync(f.path);
-        }
-      });
-    }
+    cleanupUploadedFiles(req);
     return res.status(400).json({ error: 'Missing required field: original (the unwatermarked image)' });
   }
 
   if (!req.files.watermarked || !req.files.watermarked[0]) {
-    // Clean up any uploaded files
-    if (req.files) {
-      Object.values(req.files).flat().forEach(f => {
-        if (f && f.path && fs.existsSync(f.path)) {
-          fs.unlinkSync(f.path);
-        }
-      });
-    }
+    cleanupUploadedFiles(req);
     return res.status(400).json({ error: 'Missing required field: watermarked (the watermarked image to detect)' });
   }
 
@@ -385,15 +398,11 @@ app.post('/detect', detectLimiter, authenticateApiKey, uploadDetect.fields([
   });
 
   detectProcess.on('close', (code) => {
-    // Clean up input files
+    // Clean up input and output files
     const cleanupFiles = () => {
-      try {
-        if (fs.existsSync(originalPath)) fs.unlinkSync(originalPath);
-        if (fs.existsSync(watermarkedPath)) fs.unlinkSync(watermarkedPath);
-        if (fs.existsSync(outputJsonPath)) fs.unlinkSync(outputJsonPath);
-      } catch (err) {
-        console.error(`[${jobId}] Error cleaning up files:`, err);
-      }
+      safeUnlink(originalPath, jobId);
+      safeUnlink(watermarkedPath, jobId);
+      safeUnlink(outputJsonPath, jobId);
     };
 
     if (code === 0) {
@@ -442,14 +451,8 @@ app.post('/detect', detectLimiter, authenticateApiKey, uploadDetect.fields([
     console.error(`[${jobId}] Process error:`, err);
     sendEvent({ error: 'Failed to start detection processing' });
     res.end();
-
-    // Clean up input files
-    try {
-      if (fs.existsSync(originalPath)) fs.unlinkSync(originalPath);
-      if (fs.existsSync(watermarkedPath)) fs.unlinkSync(watermarkedPath);
-    } catch (cleanupErr) {
-      console.error(`[${jobId}] Error cleaning up files:`, cleanupErr);
-    }
+    safeUnlink(originalPath, jobId);
+    safeUnlink(watermarkedPath, jobId);
   });
 
   // Handle client disconnect
@@ -493,27 +496,8 @@ app.get('/download/:jobId', authenticateApiKey, (req, res) => {
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
 
-  // Clean up uploaded file(s) on error
-  if (req.file && req.file.path && fs.existsSync(req.file.path)) {
-    try {
-      fs.unlinkSync(req.file.path);
-    } catch (cleanupErr) {
-      console.error('Error cleaning up file:', cleanupErr);
-    }
-  }
-
-  // Clean up multiple uploaded files (from detect endpoint)
-  if (req.files) {
-    Object.values(req.files).flat().forEach(f => {
-      if (f && f.path && fs.existsSync(f.path)) {
-        try {
-          fs.unlinkSync(f.path);
-        } catch (cleanupErr) {
-          console.error('Error cleaning up file:', cleanupErr);
-        }
-      }
-    });
-  }
+  // Clean up any uploaded files on error
+  cleanupUploadedFiles(req);
 
   if (err instanceof multer.MulterError) {
     if (err.code === 'LIMIT_FILE_SIZE') {
