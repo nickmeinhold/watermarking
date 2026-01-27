@@ -149,10 +149,71 @@ void unscramble(double* array, int array_len, int key) {
   }
 }
 
-// write out a json file with the message to the specified path
-int outputResultsFile(std::string message, std::string filePath) {
+// write out a json file with the message and confidence to the specified path
+int outputResultsFile(std::string message, double confidence, std::string filePath) {
   nlohmann::json j;
   j["message"] = message;
+  j["confidence"] = confidence;
+
+  // write prettified JSON to file
+  std::ofstream o(filePath);
+  o << std::setw(4) << j << std::endl;
+
+  return 0;
+}
+
+// write out extended statistics as json file
+int outputResultsFileExtended(const DetectionStats& stats, std::string filePath) {
+  nlohmann::json j;
+
+  // Core results (same as legacy for backward compatibility)
+  j["message"] = stats.message;
+  j["confidence"] = stats.confidence;
+
+  // Image properties
+  j["imageWidth"] = stats.imageWidth;
+  j["imageHeight"] = stats.imageHeight;
+  j["primeSize"] = stats.primeSize;
+
+  // Detection status
+  j["detected"] = stats.detected;
+  j["threshold"] = stats.threshold;
+
+  // Timing breakdown (milliseconds)
+  j["timing"]["imageLoad"] = stats.timeImageLoad;
+  j["timing"]["extraction"] = stats.timeExtraction;
+  j["timing"]["correlation"] = stats.timeCorrelation;
+  j["timing"]["total"] = stats.timeTotal;
+
+  // Sequence statistics
+  j["totalSequencesTested"] = stats.totalSequencesTested;
+  j["sequencesAboveThreshold"] = stats.sequencesAboveThreshold;
+
+  // PSNR summary
+  j["psnrStats"]["min"] = stats.confidence;  // min is the confidence
+  j["psnrStats"]["max"] = stats.maxPsnr;
+  j["psnrStats"]["avg"] = stats.avgPsnr;
+
+  // Per-sequence details (for histogram/chart visualization)
+  nlohmann::json sequencesArray = nlohmann::json::array();
+  for (const auto& seq : stats.sequences) {
+    nlohmann::json seqJson;
+    seqJson["k"] = seq.k;
+    seqJson["psnr"] = seq.psnr;
+    seqJson["peakX"] = seq.peakX;
+    seqJson["peakY"] = seq.peakY;
+    seqJson["peakVal"] = seq.peakVal;
+    seqJson["rms"] = seq.rms;
+    seqJson["shift"] = seq.shift;
+    sequencesArray.push_back(seqJson);
+  }
+  j["sequences"] = sequencesArray;
+
+  // Correlation matrix statistics (summary, not full matrix)
+  j["correlationStats"]["min"] = stats.correlationMin;
+  j["correlationStats"]["max"] = stats.correlationMax;
+  j["correlationStats"]["mean"] = stats.correlationMean;
+  j["correlationStats"]["stdDev"] = stats.correlationStdDev;
 
   // write prettified JSON to file
   std::ofstream o(filePath);
