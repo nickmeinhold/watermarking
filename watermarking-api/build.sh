@@ -13,7 +13,7 @@ echo "Copying C++ source files..."
 cp "$PARENT_DIR/watermarking-docker/mark.cpp" "$SCRIPT_DIR/"
 cp "$PARENT_DIR/watermarking-docker/detect.cpp" "$SCRIPT_DIR/"
 
-# Copy watermarking-functions directory
+# Copy watermarking-functions directory from root (canonical source)
 rm -rf "$SCRIPT_DIR/watermarking-functions"
 cp -r "$PARENT_DIR/watermarking-functions" "$SCRIPT_DIR/"
 

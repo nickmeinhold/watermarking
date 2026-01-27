@@ -10,3 +10,4 @@ node_modules/
 # Build artifacts (copied from sibling directories for Docker build)
 watermarking-functions/
 mark.cpp
+detect.cpp
