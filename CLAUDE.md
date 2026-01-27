@@ -25,7 +25,7 @@ watermarking_mobile         watermarking_webapp          watermarking-docker
                               (Cloud Run API)
                                     |
                             REST API for external
-                            watermarking requests
+                            watermarking & detection
 ```
 
 ## Projects
@@ -36,7 +36,7 @@ watermarking_mobile         watermarking_webapp          watermarking-docker
 | `watermarking_mobile/` | Mobile app - captures images, detects rectangles (iOS only), uploads for processing | Flutter, ARKit, Vision Framework, Metal |
 | `watermarking_webapp/` | Web interface - upload originals, view marked images, trigger detection | Flutter Web, Firebase, Material 3 |
 | `watermarking-docker/` | Backend - queue-based processing, runs C++ mark/detect binaries | Node.js, Docker, Firebase Queue |
-| `watermarking-api/` | REST API - standalone watermarking service with SSE progress streaming | Node.js, Express, Docker, Cloud Run |
+| `watermarking-api/` | REST API - standalone watermarking and detection service with SSE progress streaming | Node.js, Express, Docker, Cloud Run |
 | `watermarking-functions/` | Core algorithms - DFT-based watermark embedding/extraction | C++, OpenCV, Boost |
 
 ## Detection Flow
@@ -253,7 +253,7 @@ The `progress` field provides real-time feedback:
 
 ## REST API (watermarking-api)
 
-Standalone REST API for watermarking images, deployed on Cloud Run.
+Standalone REST API for watermarking and detecting images, deployed on Cloud Run.
 
 **Service URL:** `https://watermarking-api-78940960204.us-central1.run.app`
 
@@ -289,6 +289,34 @@ Download the watermarked image (available for 5 minutes).
 
 **Response:** `image/png`
 
+#### POST /detect
+
+Detect watermark in an image with SSE progress streaming.
+
+**Note:** Detection requires both the original (unwatermarked) image and the watermarked image because the algorithm compares them to extract the hidden message.
+
+**Request:**
+- Header: `X-API-Key: <api-key>`
+- Content-Type: `multipart/form-data`
+- Body:
+  - `original` (required): Original unwatermarked PNG or JPG file
+  - `watermarked` (required): Watermarked PNG or JPG file to detect
+
+**Response (SSE stream):**
+```
+data: {"progress":"Loading images...","percent":10}
+data: {"progress":"Extracting watermark from frequency domain...","percent":50}
+data: {"progress":"Analyzing sequence 1...","percent":50}
+data: {"complete":true,"detected":true,"message":"SecretMessage","confidence":12.5,"statistics":{...}}
+```
+
+**Final event fields:**
+- `complete`: true when processing finished
+- `detected`: boolean indicating if a watermark was found
+- `message`: the detected message (or "No message found." if none)
+- `confidence`: signal strength (higher is better, threshold is 6.0)
+- `statistics`: detailed detection statistics (timing, PSNR, correlation data)
+
 #### GET /health
 
 Health check (no auth required).
@@ -309,6 +337,12 @@ curl -N https://watermarking-api-78940960204.us-central1.run.app/watermark \
 curl https://watermarking-api-78940960204.us-central1.run.app/download/{jobId} \
   -H "X-API-Key: YOUR_API_KEY" \
   -o watermarked.png
+
+# Detect watermark (requires both original and watermarked images)
+curl -N https://watermarking-api-78940960204.us-central1.run.app/detect \
+  -H "X-API-Key: YOUR_API_KEY" \
+  -F "original=@photo.png" \
+  -F "watermarked=@watermarked.png"
 ```
 
 ### Environment Variables
@@ -395,7 +429,7 @@ Active development. iOS-first project with functional web and backend components
 
 ### Recent Updates (Jan 2026)
 
-- **REST API**: New standalone watermarking API deployed on Cloud Run with SSE progress streaming, API key auth, rate limiting, and CORS support
+- **REST API**: New standalone watermarking and detection API deployed on Cloud Run with SSE progress streaming, API key auth, rate limiting, and CORS support
 - **Shared Visualization Widgets**: Detection statistics charts moved to `watermarking_core` for reuse across mobile and web
 - **Web Detection Details**: Click detection history items to view full statistics in a dialog with responsive two-column layout
 - **Extended Detection Statistics**: C++ detection now outputs comprehensive stats (timing, per-sequence PSNR, correlation matrix stats, peak positions)

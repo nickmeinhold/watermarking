@@ -68,11 +68,39 @@ const watermarkLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// Rate limiting for detect endpoint (10 requests per minute per API key)
+const detectLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: parseInt(process.env.RATE_LIMIT_MAX, 10) || 10,
+  keyGenerator: (req) => req.headers['x-api-key'] || req.ip,
+  handler: (req, res) => {
+    res.status(429).json({ error: 'Too many requests. Please try again later.' });
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Configure multer for file uploads
 const upload = multer({
   dest: '/tmp/uploads/',
   limits: {
     fileSize: 50 * 1024 * 1024, // 50MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedMimes = ['image/png', 'image/jpeg'];
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only PNG and JPG images are allowed.'));
+    }
+  }
+});
+
+// Configure multer for detection (two files: original and watermarked)
+const uploadDetect = multer({
+  dest: '/tmp/uploads/',
+  limits: {
+    fileSize: 50 * 1024 * 1024, // 50MB limit per file
   },
   fileFilter: (req, file, cb) => {
     const allowedMimes = ['image/png', 'image/jpeg'];
@@ -119,8 +147,8 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
-// Parse progress from C++ binary stdout
-function parseProgress(line) {
+// Parse progress from C++ marking binary stdout
+function parseMarkProgress(line) {
   if (!line.startsWith('PROGRESS:')) {
     return null;
   }
@@ -139,6 +167,15 @@ function parseProgress(line) {
     return { progress: 'Compressing image...', percent: 90 };
   }
 
+  return null;
+}
+
+// Parse progress from C++ detection binary stdout
+function parseDetectProgress(line) {
+  if (line.startsWith('PROGRESS:')) {
+    const msg = line.substring(9).trim();
+    return { progress: msg, percent: 50 }; // Detection progress is less predictable
+  }
   return null;
 }
 
@@ -200,7 +237,7 @@ app.post('/watermark', watermarkLimiter, authenticateApiKey, upload.single('imag
     const lines = data.toString().split('\n').filter(line => line.trim());
     for (const line of lines) {
       console.log(`[${jobId}] Mark output:`, line);
-      const progressData = parseProgress(line);
+      const progressData = parseMarkProgress(line);
       if (progressData && JSON.stringify(progressData) !== JSON.stringify(lastProgress)) {
         lastProgress = progressData;
         sendEvent(progressData);
@@ -270,6 +307,160 @@ app.post('/watermark', watermarkLimiter, authenticateApiKey, upload.single('imag
   });
 });
 
+// Detection endpoint with SSE streaming
+// Requires both original (unwatermarked) image and watermarked image
+app.post('/detect', detectLimiter, authenticateApiKey, uploadDetect.fields([
+  { name: 'original', maxCount: 1 },
+  { name: 'watermarked', maxCount: 1 }
+]), async (req, res) => {
+  // Validate required fields
+  if (!req.files || !req.files.original || !req.files.original[0]) {
+    // Clean up any uploaded files
+    if (req.files) {
+      Object.values(req.files).flat().forEach(f => {
+        if (f && f.path && fs.existsSync(f.path)) {
+          fs.unlinkSync(f.path);
+        }
+      });
+    }
+    return res.status(400).json({ error: 'Missing required field: original (the unwatermarked image)' });
+  }
+
+  if (!req.files.watermarked || !req.files.watermarked[0]) {
+    // Clean up any uploaded files
+    if (req.files) {
+      Object.values(req.files).flat().forEach(f => {
+        if (f && f.path && fs.existsSync(f.path)) {
+          fs.unlinkSync(f.path);
+        }
+      });
+    }
+    return res.status(400).json({ error: 'Missing required field: watermarked (the watermarked image to detect)' });
+  }
+
+  const jobId = uuidv4();
+  const originalPath = req.files.original[0].path;
+  const watermarkedPath = req.files.watermarked[0].path;
+  const outputJsonPath = `/tmp/${jobId}.json`;
+
+  // Set up SSE response
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
+  res.flushHeaders();
+
+  // Helper to send SSE event
+  const sendEvent = (data) => {
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+  };
+
+  console.log(`Starting detection job ${jobId}`);
+  sendEvent({ progress: 'Loading images...', percent: 10 });
+
+  // Spawn the detect-image binary
+  // Arguments: uid, originalFilePath, markedFilePath
+  const detectProcess = spawn('./detect-image', [
+    jobId,
+    originalPath,
+    watermarkedPath
+  ]);
+
+  let lastProgress = null;
+
+  detectProcess.stdout.on('data', (data) => {
+    const lines = data.toString().split('\n').filter(line => line.trim());
+    for (const line of lines) {
+      console.log(`[${jobId}] Detect output:`, line);
+      const progressData = parseDetectProgress(line);
+      if (progressData && JSON.stringify(progressData) !== JSON.stringify(lastProgress)) {
+        lastProgress = progressData;
+        sendEvent(progressData);
+      }
+    }
+  });
+
+  detectProcess.stderr.on('data', (data) => {
+    console.error(`[${jobId}] Detect stderr:`, data.toString());
+  });
+
+  detectProcess.on('close', (code) => {
+    // Clean up input files
+    const cleanupFiles = () => {
+      try {
+        if (fs.existsSync(originalPath)) fs.unlinkSync(originalPath);
+        if (fs.existsSync(watermarkedPath)) fs.unlinkSync(watermarkedPath);
+        if (fs.existsSync(outputJsonPath)) fs.unlinkSync(outputJsonPath);
+      } catch (err) {
+        console.error(`[${jobId}] Error cleaning up files:`, err);
+      }
+    };
+
+    if (code === 0) {
+      // Read the results JSON
+      if (fs.existsSync(outputJsonPath)) {
+        try {
+          const results = JSON.parse(fs.readFileSync(outputJsonPath, 'utf8'));
+          console.log(`[${jobId}] Detection complete:`, results.message);
+
+          sendEvent({
+            complete: true,
+            detected: results.detected || false,
+            message: results.message || null,
+            confidence: results.confidence || 0,
+            // Include additional stats if available
+            statistics: {
+              imageWidth: results.imageWidth,
+              imageHeight: results.imageHeight,
+              primeSize: results.primeSize,
+              threshold: results.threshold,
+              timing: results.timing,
+              totalSequencesTested: results.totalSequencesTested,
+              sequencesAboveThreshold: results.sequencesAboveThreshold,
+              psnrStats: results.psnrStats,
+              correlationStats: results.correlationStats
+            }
+          });
+        } catch (parseErr) {
+          console.error(`[${jobId}] Error parsing results:`, parseErr);
+          sendEvent({ error: 'Failed to parse detection results' });
+        }
+      } else {
+        console.error(`[${jobId}] Results file not found at expected path`);
+        sendEvent({ error: 'Processing completed but results file not found' });
+      }
+    } else {
+      console.error(`[${jobId}] detect-image exited with code ${code}`);
+      sendEvent({ error: 'Detection processing failed' });
+    }
+
+    cleanupFiles();
+    res.end();
+  });
+
+  detectProcess.on('error', (err) => {
+    console.error(`[${jobId}] Process error:`, err);
+    sendEvent({ error: 'Failed to start detection processing' });
+    res.end();
+
+    // Clean up input files
+    try {
+      if (fs.existsSync(originalPath)) fs.unlinkSync(originalPath);
+      if (fs.existsSync(watermarkedPath)) fs.unlinkSync(watermarkedPath);
+    } catch (cleanupErr) {
+      console.error(`[${jobId}] Error cleaning up files:`, cleanupErr);
+    }
+  });
+
+  // Handle client disconnect
+  req.on('close', () => {
+    if (!detectProcess.killed) {
+      console.log(`[${jobId}] Client disconnected, killing process`);
+      detectProcess.kill();
+    }
+  });
+});
+
 // Download endpoint
 app.get('/download/:jobId', authenticateApiKey, (req, res) => {
   const jobId = req.params.jobId;
@@ -302,13 +493,26 @@ app.get('/download/:jobId', authenticateApiKey, (req, res) => {
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
 
-  // Clean up uploaded file on error
+  // Clean up uploaded file(s) on error
   if (req.file && req.file.path && fs.existsSync(req.file.path)) {
     try {
       fs.unlinkSync(req.file.path);
     } catch (cleanupErr) {
       console.error('Error cleaning up file:', cleanupErr);
     }
+  }
+
+  // Clean up multiple uploaded files (from detect endpoint)
+  if (req.files) {
+    Object.values(req.files).flat().forEach(f => {
+      if (f && f.path && fs.existsSync(f.path)) {
+        try {
+          fs.unlinkSync(f.path);
+        } catch (cleanupErr) {
+          console.error('Error cleaning up file:', cleanupErr);
+        }
+      }
+    });
   }
 
   if (err instanceof multer.MulterError) {
