@@ -3,8 +3,24 @@ name: CI
 on:
   push:
     branches: [main]
+    paths:
+      - 'watermarking-docker/**'
+      - 'watermarking-api/**'
+      - 'watermarking_core/**'
+      - 'watermarking_mobile/**'
+      - 'watermarking_webapp/**'
+      - 'watermarking-functions/**'
+      - '.github/workflows/**'
   pull_request:
     branches: [main]
+    paths:
+      - 'watermarking-docker/**'
+      - 'watermarking-api/**'
+      - 'watermarking_core/**'
+      - 'watermarking_mobile/**'
+      - 'watermarking_webapp/**'
+      - 'watermarking-functions/**'
+      - '.github/workflows/**'
 
 jobs:
   analyze-and-test:
@@ -38,6 +54,7 @@ jobs:
 
           # Check which areas changed
           echo "docker=$([[ "$CHANGED" == *"watermarking-docker/"* ]] && echo true || echo false)" >> $GITHUB_OUTPUT
+          echo "api=$([[ "$CHANGED" == *"watermarking-api/"* ]] && echo true || echo false)" >> $GITHUB_OUTPUT
           echo "dart=$([[ "$CHANGED" == *"watermarking_core/"* || "$CHANGED" == *"watermarking_mobile/"* || "$CHANGED" == *"watermarking_webapp/"* ]] && echo true || echo false)" >> $GITHUB_OUTPUT
           echo "ios=$([[ "$CHANGED" == *"watermarking_mobile/ios/"* ]] && echo true || echo false)" >> $GITHUB_OUTPUT
 
