@@ -13,9 +13,9 @@ echo "Copying C++ source files..."
 cp "$PARENT_DIR/watermarking-docker/mark.cpp" "$SCRIPT_DIR/"
 cp "$PARENT_DIR/watermarking-docker/detect.cpp" "$SCRIPT_DIR/"
 
-# Copy watermarking-functions directory
+# Copy watermarking-functions directory (from watermarking-docker which has extended detection types)
 rm -rf "$SCRIPT_DIR/watermarking-functions"
-cp -r "$PARENT_DIR/watermarking-functions" "$SCRIPT_DIR/"
+cp -r "$PARENT_DIR/watermarking-docker/watermarking-functions" "$SCRIPT_DIR/"
 
 echo "Building Docker image..."
 docker build -t watermarking-api "$SCRIPT_DIR"
