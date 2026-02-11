@@ -33,15 +33,47 @@ class ConsoleDialog extends StatelessWidget {
   }
 }
 
-class _ConsoleContent extends StatelessWidget {
+class _ConsoleContent extends StatefulWidget {
   const _ConsoleContent({required this.userId, required this.problems});
 
   final String userId;
   final List<Problem> problems;
 
   @override
-  Widget build(BuildContext context) {
+  State<_ConsoleContent> createState() => _ConsoleContentState();
+}
+
+class _ConsoleContentState extends State<_ConsoleContent> {
+  late final Stream<QuerySnapshot> _originalsStream;
+  late final Stream<QuerySnapshot> _markedStream;
+  late final Stream<QuerySnapshot> _detectionsStream;
+  late final Stream<QuerySnapshot> _tasksStream;
+
+  @override
+  void initState() {
+    super.initState();
     final db = FirebaseFirestore.instance;
+    _originalsStream = db
+        .collection('originalImages')
+        .where('userId', isEqualTo: widget.userId)
+        .snapshots();
+    _markedStream = db
+        .collection('markedImages')
+        .where('userId', isEqualTo: widget.userId)
+        .snapshots();
+    _detectionsStream = db
+        .collection('detectionItems')
+        .where('userId', isEqualTo: widget.userId)
+        .snapshots();
+    _tasksStream = db
+        .collection('tasks')
+        .where('userId', isEqualTo: widget.userId)
+        .orderBy('createdAt', descending: true)
+        .snapshots();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Dialog.fullscreen(
       child: DefaultTabController(
         length: 5,
@@ -55,18 +87,18 @@ class _ConsoleContent extends StatelessWidget {
             bottom: TabBar(
               isScrollable: true,
               tabs: [
-                _collectionTab(db, 'originalImages', 'Originals'),
-                _collectionTab(db, 'markedImages', 'Marked'),
-                _collectionTab(db, 'detectionItems', 'Detections'),
-                _taskTab(db),
+                _badgeTab(_originalsStream, 'Originals'),
+                _badgeTab(_markedStream, 'Marked'),
+                _badgeTab(_detectionsStream, 'Detections'),
+                _badgeTab(_tasksStream, 'Tasks'),
                 Tab(
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const Text('Problems'),
-                      if (problems.isNotEmpty) ...[
+                      if (widget.problems.isNotEmpty) ...[
                         const SizedBox(width: 6),
-                        _badge(problems.length, Colors.red),
+                        _badge(widget.problems.length, Colors.red),
                       ],
                     ],
                   ),
@@ -77,18 +109,12 @@ class _ConsoleContent extends StatelessWidget {
           body: TabBarView(
             children: [
               _CollectionTab(
-                stream: db
-                    .collection('originalImages')
-                    .where('userId', isEqualTo: userId)
-                    .snapshots(),
+                stream: _originalsStream,
                 imageUrlKeys: const ['servingUrl', 'url'],
                 summaryBuilder: (data) => data['name'] ?? data['path'] ?? '—',
               ),
               _CollectionTab(
-                stream: db
-                    .collection('markedImages')
-                    .where('userId', isEqualTo: userId)
-                    .snapshots(),
+                stream: _markedStream,
                 imageUrlKeys: const ['servingUrl'],
                 summaryBuilder: (data) {
                   final msg = data['message'] ?? '';
@@ -97,23 +123,18 @@ class _ConsoleContent extends StatelessWidget {
                 },
               ),
               _CollectionTab(
-                stream: db
-                    .collection('detectionItems')
-                    .where('userId', isEqualTo: userId)
-                    .snapshots(),
+                stream: _detectionsStream,
                 imageUrlKeys: const [],
                 summaryBuilder: (data) {
                   final result = data['result'] ?? '—';
                   final conf = data['confidence'];
-                  return conf != null ? '$result (${conf.toStringAsFixed(1)})' : result;
+                  return conf != null
+                      ? '$result (${conf.toStringAsFixed(1)})'
+                      : result;
                 },
               ),
               _CollectionTab(
-                stream: db
-                    .collection('tasks')
-                    .where('userId', isEqualTo: userId)
-                    .orderBy('createdAt', descending: true)
-                    .snapshots(),
+                stream: _tasksStream,
                 imageUrlKeys: const [],
                 summaryBuilder: (data) {
                   final type = data['type'] ?? '?';
@@ -133,7 +154,7 @@ class _ConsoleContent extends StatelessWidget {
                   }
                 },
               ),
-              _ProblemsTab(problems: problems),
+              _ProblemsTab(problems: widget.problems),
             ],
           ),
         ),
@@ -141,12 +162,9 @@ class _ConsoleContent extends StatelessWidget {
     );
   }
 
-  Widget _collectionTab(FirebaseFirestore db, String collection, String label) {
+  Widget _badgeTab(Stream<QuerySnapshot> stream, String label) {
     return StreamBuilder<QuerySnapshot>(
-      stream: db
-          .collection(collection)
-          .where('userId', isEqualTo: userId)
-          .snapshots(),
+      stream: stream,
       builder: (context, snapshot) {
         final count = snapshot.data?.docs.length ?? 0;
         return Tab(
@@ -154,30 +172,6 @@ class _ConsoleContent extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(label),
-              if (count > 0) ...[
-                const SizedBox(width: 6),
-                _badge(count, Colors.grey),
-              ],
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _taskTab(FirebaseFirestore db) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: db
-          .collection('tasks')
-          .where('userId', isEqualTo: userId)
-          .snapshots(),
-      builder: (context, snapshot) {
-        final count = snapshot.data?.docs.length ?? 0;
-        return Tab(
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Tasks'),
               if (count > 0) ...[
                 const SizedBox(width: 6),
                 _badge(count, Colors.grey),
@@ -249,9 +243,9 @@ class _CollectionTab extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: SelectableText(
-                    const JsonEncoder.withIndent('  ')
-                        .convert(_sanitize(data)),
-                    style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+                    const JsonEncoder.withIndent('  ').convert(_sanitize(data)),
+                    style:
+                        const TextStyle(fontFamily: 'monospace', fontSize: 11),
                   ),
                 ),
               ],
@@ -263,7 +257,6 @@ class _CollectionTab extends StatelessWidget {
   }
 
   Widget _buildLeading(Map<String, dynamic> data, Color? statusColor) {
-    // Try to show a thumbnail from image URL fields
     for (final key in imageUrlKeys) {
       final url = data[key];
       if (url is String && url.isNotEmpty) {
@@ -318,7 +311,8 @@ class _ProblemsTab extends StatelessWidget {
         return ExpansionTile(
           leading: const Icon(Icons.error_outline, color: Colors.red),
           title: Text(p.type.name),
-          subtitle: Text(p.message, maxLines: 1, overflow: TextOverflow.ellipsis),
+          subtitle:
+              Text(p.message, maxLines: 1, overflow: TextOverflow.ellipsis),
           children: [
             Padding(
               padding: const EdgeInsets.all(16),
