@@ -92,7 +92,7 @@ Project: `watermarking-4a428`
 /users/{userId}              - user profile
 /originalImages/{imageId}    - original image metadata
 /markedImages/{imageId}      - marked image metadata & processing status
-/tasks/{taskId}              - processing tasks (mark, detect, get_serving_url)
+/tasks/{taskId}              - processing tasks (mark, detect, delete)
 /detecting/{userId}          - detection progress state
 /detectionItems/{itemId}     - detection results with statistics
 ```
@@ -101,6 +101,8 @@ Project: `watermarking-4a428`
 - `original-images/{userId}/` - uploaded source images
 - `marked-images/{userId}/` - watermarked outputs
 - `detecting-images/{userId}/` - captured images for detection
+
+**Note:** The GCS bucket is private — do NOT make it public. Originals must stay private so attackers can't use them to reverse-engineer watermarks. The `servingUrl` for original images is broken (tokenless public URL → 403); `database_service.dart` falls back to the token-based `url` field. Marked images and detection items have working signed URLs.
 
 ## Build & Deploy
 
