@@ -4,10 +4,13 @@ import 'package:flutter_redux/flutter_redux.dart';
 import 'package:go_router/go_router.dart';
 import 'package:redux/redux.dart';
 import 'package:watermarking_core/watermarking_core.dart';
+import 'package:watermarking_webapp/middleware/api_middleware.dart';
+import 'package:watermarking_webapp/services/watermarking_api_service.dart';
 import 'package:watermarking_webapp/services/web_device_service.dart';
 import 'package:watermarking_webapp/views/admin_page.dart';
 import 'package:watermarking_webapp/views/marked_images_page.dart';
 import 'package:watermarking_webapp/views/opening_page.dart';
+import 'package:watermarking_webapp/views/console_dialog.dart';
 import 'package:watermarking_webapp/views/original_images_page.dart';
 import 'firebase_options.dart';
 
@@ -22,8 +25,18 @@ void main() async {
   final StorageService storageService = StorageService();
   final DeviceService deviceService = WebDeviceService();
 
+  // REST API integration — mark/detect go directly through the REST API.
+  const apiKey = String.fromEnvironment('WATERMARKING_API_KEY');
+  const apiUrl = String.fromEnvironment('WATERMARKING_API_URL',
+      defaultValue: 'https://watermarking-api-78940960204.us-central1.run.app');
+
   final Store<AppState> store = Store<AppState>(appReducer,
       middleware: <Middleware<AppState>>[
+        ...createApiMiddlewares(
+          WatermarkingApiService(apiKey: apiKey, baseUrl: apiUrl),
+          databaseService,
+          storageService,
+        ),
         ...createMiddlewares(
             authService, databaseService, deviceService, storageService),
         createEpicMiddleware(authService, databaseService, storageService).call,
@@ -140,12 +153,24 @@ class AppShell extends StatelessWidget {
                   child: PopupMenuButton<String>(
                     offset: const Offset(0, 48),
                     onSelected: (value) {
-                      if (value == 'signout') {
+                      if (value == 'console') {
+                        ConsoleDialog.show(context);
+                      } else if (value == 'signout') {
                         StoreProvider.of<AppState>(context)
                             .dispatch(ActionSignout());
                       }
                     },
                     itemBuilder: (context) => [
+                      const PopupMenuItem<String>(
+                        value: 'console',
+                        child: Row(
+                          children: [
+                            Icon(Icons.terminal),
+                            SizedBox(width: 8),
+                            Text('Console'),
+                          ],
+                        ),
+                      ),
                       const PopupMenuItem<String>(
                         value: 'signout',
                         child: Row(

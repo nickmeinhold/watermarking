@@ -10,25 +10,6 @@ var storageHelper = require('./storage-helper');
 
 module.exports = {
   /**
-   * Get a serving URL for an image and update Firestore
-   * Uses direct Storage URL instead of App Engine serving URL
-   */
-  processServingUrlTask: async function (data) {
-    console.log(`Getting public URL for: ${data.path}`);
-
-    var urlString = storageHelper.getPublicUrl(data.path);
-    console.log('Got public URL:', urlString);
-
-    // Update the original image document
-    await db.collection('originalImages').doc(data.imageId).update({
-      servingUrl: urlString
-    });
-
-    console.log('Updated original image with serving URL');
-  },
-
-
-  /**
    * Delete an original image and all its marked versions
    */
   processDeleteOriginalImageTask: async function (data) {

@@ -60,6 +60,7 @@ class DatabaseService {
         final markedSnapshot = await _db
             .collection('markedImages')
             .where('originalImageId', isEqualTo: doc.id)
+            .where('userId', isEqualTo: userId)
             .get();
 
         final List<MarkedImageReference> markedImages =
@@ -84,7 +85,7 @@ class DatabaseService {
           id: doc.id,
           name: data['name']?.toString(),
           filePath: data['path']?.toString(),
-          url: data['servingUrl']?.toString(),
+          url: data['url']?.toString(),
           markedImages: markedImages,
         ));
       }
@@ -176,18 +177,6 @@ class DatabaseService {
       'width': width,
       'height': height,
       'timestamp': FieldValue.serverTimestamp(),
-    });
-
-    _wakeUpBackend();
-
-    // Create a task to get serving URL
-    await _db.collection('tasks').add({
-      'type': 'get_serving_url',
-      'status': 'pending',
-      'userId': userId,
-      'imageId': docRef.id,
-      'path': path,
-      'createdAt': FieldValue.serverTimestamp(),
     });
 
     return docRef.id;
