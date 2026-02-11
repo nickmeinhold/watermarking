@@ -250,6 +250,9 @@ The `progress` field provides real-time feedback:
 |--------------|---------|
 | `original-images/{userId}/{fileName}` | Original uploaded images |
 | `marked-images/{userId}/{timestamp}/{fileName}.png` | Processed watermarked images |
+| `detecting-images/{userId}/{fileName}` | Captured images for detection |
+
+**IMPORTANT: The GCS bucket must NOT be made public.** Original images must stay private because the watermarking system's security depends on originals not being freely accessible — if an attacker has the original, they can compare it against a watermarked version to reverse-engineer or remove the watermark. Image URLs require either token-based download URLs or signed URLs to work with the private bucket. Note: the `servingUrl` for `originalImages` is currently broken — `misc-queues.js` generates a tokenless public URL via `getPublicUrl()` which returns 403. Marked images and detection items use `getSignedUrl()` (10-year signed URLs) which work correctly.
 
 ## REST API (watermarking-api)
 

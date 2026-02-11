@@ -82,9 +82,6 @@ async function processTask(taskId, data) {
     case 'detect':
       await detectionTasks.processDetectionTask(taskId, data);
       break;
-    case 'get_serving_url':
-      await miscTasks.processServingUrlTask(data);
-      break;
     case 'delete_marked_image':
       await miscTasks.processDeleteMarkedImageTask(data);
       break;
