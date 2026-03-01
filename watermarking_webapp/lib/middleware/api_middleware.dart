@@ -12,6 +12,10 @@ import '../services/watermarking_api_service.dart';
 /// These middlewares do NOT call `next(action)`, which prevents the core
 /// middleware from creating `tasks/{id}` documents. All state updates flow
 /// through existing Firestore listeners.
+///
+/// Note: Unlike mobile, web does not handle `ActionSetUploadSuccess` because
+/// web has no camera capture flow — detection is only triggered via
+/// `ActionDetectMarkedImage` from the UI.
 List<Middleware<AppState>> createApiMiddlewares(
   WebWatermarkingApiService apiService,
 ) {

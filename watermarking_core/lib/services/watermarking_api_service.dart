@@ -9,9 +9,11 @@ import 'package:http/http.dart' as http;
 /// Uses `package:http` for SSE streaming (works on both iOS and web).
 /// Web apps may use their own browser-specific implementation instead.
 class WatermarkingApiService {
-  WatermarkingApiService({required this.baseUrl});
+  WatermarkingApiService({required this.baseUrl, http.Client? client})
+      : _client = client ?? http.Client();
 
   final String baseUrl;
+  final http.Client _client;
 
   Future<String> _getIdToken() async {
     final user = FirebaseAuth.instance.currentUser;
@@ -80,46 +82,41 @@ class WatermarkingApiService {
       ..headers['Content-Type'] = 'application/json'
       ..body = jsonEncode(body);
 
-    final client = http.Client();
-    try {
-      final response = await client.send(request);
+    final response = await _client.send(request);
 
-      if (response.statusCode != 200) {
-        final responseBody = await response.stream.bytesToString();
-        try {
-          final json = jsonDecode(responseBody) as Map<String, dynamic>;
-          throw Exception(json['error'] ?? 'API error: ${response.statusCode}');
-        } catch (e) {
-          if (e is Exception) rethrow;
-          throw Exception('API error ${response.statusCode}: $responseBody');
-        }
+    if (response.statusCode != 200) {
+      final responseBody = await response.stream.bytesToString();
+      try {
+        final json = jsonDecode(responseBody) as Map<String, dynamic>;
+        throw Exception(json['error'] ?? 'API error: ${response.statusCode}');
+      } catch (e) {
+        if (e is Exception) rethrow;
+        throw Exception('API error ${response.statusCode}: $responseBody');
       }
+    }
 
-      // Parse SSE events from the streamed response
-      var buffer = '';
-      await for (final chunk in response.stream.transform(utf8.decoder)) {
-        buffer += chunk;
+    // Parse SSE events from the streamed response
+    var buffer = '';
+    await for (final chunk in response.stream.transform(utf8.decoder)) {
+      buffer += chunk;
 
-        while (buffer.contains('\n\n')) {
-          final end = buffer.indexOf('\n\n');
-          final eventText = buffer.substring(0, end);
-          buffer = buffer.substring(end + 2);
+      while (buffer.contains('\n\n')) {
+        final end = buffer.indexOf('\n\n');
+        final eventText = buffer.substring(0, end);
+        buffer = buffer.substring(end + 2);
 
-          for (final line in eventText.split('\n')) {
-            if (line.startsWith('data: ')) {
-              try {
-                final event =
-                    jsonDecode(line.substring(6)) as Map<String, dynamic>;
-                yield event;
-              } catch (_) {
-                // Skip malformed JSON
-              }
+        for (final line in eventText.split('\n')) {
+          if (line.startsWith('data: ')) {
+            try {
+              final event =
+                  jsonDecode(line.substring(6)) as Map<String, dynamic>;
+              yield event;
+            } catch (_) {
+              // Skip malformed JSON
             }
           }
         }
       }
-    } finally {
-      client.close();
     }
   }
 

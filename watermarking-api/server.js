@@ -530,9 +530,9 @@ app.post('/watermark/gcs', watermarkLimiter, authenticateFirebaseToken, async (r
   } catch (err) {
     console.error(`[${jobId}] GCS watermark error:`, err);
     sendEvent({ error: err.message || 'Processing failed' });
-    // Clear progress on error
+    // Delete orphaned Firestore doc on error (partial doc has no servingUrl)
     if (markedRef) {
-      await markedRef.update({ progress: null }).catch(() => {});
+      await markedRef.delete().catch(() => {});
     }
   } finally {
     // Cleanup temp files

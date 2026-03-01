@@ -30,7 +30,6 @@ void main() async {
       middleware: <Middleware<AppState>>[
         ...createApiMiddlewares(
           WatermarkingApiService(baseUrl: apiUrl),
-          storageService,
         ),
         ...createMiddlewares(
             authService, databaseService, deviceService, storageService),

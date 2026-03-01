@@ -16,7 +16,6 @@ import 'package:watermarking_core/watermarking_core.dart';
 /// route detection through the API instead of creating a Firestore task.
 List<Middleware<AppState>> createApiMiddlewares(
   WatermarkingApiService apiService,
-  StorageService storageService,
 ) {
   return <Middleware<AppState>>[
     TypedMiddleware<AppState, ActionMarkImage>(
@@ -26,7 +25,7 @@ List<Middleware<AppState>> createApiMiddlewares(
       _detectMarkedImageViaApi(apiService),
     ).call,
     TypedMiddleware<AppState, ActionSetUploadSuccess>(
-      _startDetectionViaApi(apiService, storageService),
+      _startDetectionViaApi(apiService),
     ).call,
     TypedMiddleware<AppState, ActionDeleteOriginalImage>(
       _deleteOriginalViaApi(apiService),
@@ -103,10 +102,10 @@ void Function(Store<AppState>, ActionDetectMarkedImage, NextDispatcher)
 /// Intercepts ActionSetUploadSuccess (captured detection flow).
 /// After mobile uploads a captured image to GCS, this calls the API
 /// with both GCS paths instead of creating a Firestore task.
+/// Note: Web app doesn't handle this action — only mobile has camera capture.
 void Function(Store<AppState>, ActionSetUploadSuccess, NextDispatcher)
     _startDetectionViaApi(
   WatermarkingApiService apiService,
-  StorageService storageService,
 ) {
   return (store, action, next) async {
     // Still call next so the reducer updates upload state
