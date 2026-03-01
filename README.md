@@ -2,6 +2,18 @@
 
 Digital watermarking system for embedding and detecting invisible messages in images that survive print-and-scan.
 
+## Getting Started
+
+```bash
+# Clone with submodules (requires access to private watermarking-functions repo)
+git clone --recurse-submodules git@github.com:nickmeinhold/watermarking.git
+
+# Or, if already cloned:
+git submodule update --init
+```
+
+> **Note:** The `watermarking-functions/` directory is a private submodule containing the core C++ algorithms. You need access to [nickmeinhold/watermarking-functions](https://github.com/nickmeinhold/watermarking-functions) to build the Docker backend and API. The Flutter apps (mobile/web) work without it.
+
 ## Architecture
 
 ```
@@ -27,7 +39,7 @@ Digital watermarking system for embedding and detecting invisible messages in im
 | `watermarking_mobile/` | Mobile app - captures images, detects rectangles (iOS only), uploads for processing | Flutter, ARKit, Vision Framework, Metal |
 | `watermarking_webapp/` | Web interface - upload originals, view marked images, trigger detection | Flutter Web, Firebase, Material 3 |
 | `watermarking-docker/` | Backend - queue-based processing, runs C++ mark/detect binaries | Node.js, Docker, Firebase Queue |
-| `watermarking-functions/` | Core algorithms - DFT-based watermark embedding/extraction | C++, OpenCV |
+| `watermarking-functions/` | Core algorithms - DFT-based watermark embedding/extraction (**private submodule**) | C++, OpenCV |
 
 ## Detection Flow
 
@@ -214,7 +226,9 @@ For background on watermarking technologies, approaches, and recommendations:
 
 ## Build Notes
 
-- **watermarking-docker** builds `watermarking-functions` from the sibling directory (managed via Docker build context context).
+- **watermarking-functions** is a **private git submodule** pointing to `nickmeinhold/watermarking-functions`. Clone with `--recurse-submodules` or run `git submodule update --init` after cloning. Build scripts auto-init the submodule if needed.
+
+- **watermarking-docker** and **watermarking-api** copy `watermarking-functions/` into their build contexts before Docker builds.
 
 - **Android** detection is not implemented - only iOS has native rectangle detection code
 

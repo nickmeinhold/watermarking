@@ -9,11 +9,17 @@ PARENT_DIR="$(dirname "$SCRIPT_DIR")"
 
 echo "Copying C++ source files..."
 
+# Ensure submodule is initialized
+if [ ! -f "$PARENT_DIR/watermarking-functions/WatermarkDetection.cpp" ]; then
+  echo "Initializing watermarking-functions submodule..."
+  (cd "$PARENT_DIR" && git submodule update --init watermarking-functions)
+fi
+
 # Copy mark.cpp and detect.cpp from watermarking-docker
 cp "$PARENT_DIR/watermarking-docker/mark.cpp" "$SCRIPT_DIR/"
 cp "$PARENT_DIR/watermarking-docker/detect.cpp" "$SCRIPT_DIR/"
 
-# Copy watermarking-functions directory from root (canonical source)
+# Copy watermarking-functions directory from root (private submodule)
 rm -rf "$SCRIPT_DIR/watermarking-functions"
 cp -r "$PARENT_DIR/watermarking-functions" "$SCRIPT_DIR/"
 

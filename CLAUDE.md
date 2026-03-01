@@ -37,7 +37,7 @@ watermarking_mobile         watermarking_webapp          watermarking-docker
 | `watermarking_webapp/` | Web interface - upload originals, view marked images, trigger detection | Flutter Web, Firebase, Material 3 |
 | `watermarking-docker/` | Backend - queue-based processing, runs C++ mark/detect binaries | Node.js, Docker, Firebase Queue |
 | `watermarking-api/` | REST API - standalone watermarking and detection service with SSE progress streaming | Node.js, Express, Docker, Cloud Run |
-| `watermarking-functions/` | Core algorithms - DFT-based watermark embedding/extraction | C++, OpenCV, Boost |
+| `watermarking-functions/` | Core algorithms - DFT-based watermark embedding/extraction (**private submodule**) | C++, OpenCV, Boost |
 
 ## Detection Flow
 
@@ -123,7 +123,7 @@ watermarking_mobile         watermarking_webapp          watermarking-docker
 | `watermarking_mobile/ios/Runner/DetectionViewController.swift` | iOS rectangle detection UI |
 | `watermarking_mobile/lib/views/detection_detail_page.dart` | Mobile detection detail page (uses shared widgets) |
 | `watermarking_webapp/lib/views/detection_detail_dialog.dart` | Web detection detail dialog (uses shared widgets) |
-| `watermarking-docker/watermarking-functions/Utilities.cpp` | `outputResultsFileExtended()` for stats JSON |
+| `watermarking-functions/Utilities.cpp` | `outputResultsFileExtended()` for stats JSON (private submodule) |
 
 ### Detection Visualization
 
@@ -415,7 +415,9 @@ Each app provides its own `DeviceService` implementation:
 
 ## Build Notes
 
-- **watermarking-docker** builds `watermarking-functions` from the sibling directory (managed via Docker build context context).
+- **watermarking-functions** is a **private git submodule** pointing to `nickmeinhold/watermarking-functions`. Clone with `--recurse-submodules` or run `git submodule update --init` after cloning. Build scripts auto-init the submodule if needed.
+
+- **watermarking-docker** and **watermarking-api** copy `watermarking-functions/` into their build contexts before Docker builds.
 
 - **Android** detection is not implemented - only iOS has native rectangle detection code
 
