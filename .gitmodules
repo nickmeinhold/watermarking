@@ -1,0 +1,3 @@
+[submodule "watermarking-functions"]
+	path = watermarking-functions
+	url = git@github.com:nickmeinhold/watermarking-functions.git
