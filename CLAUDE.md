@@ -368,11 +368,17 @@ curl -N https://watermarking-api-78940960204.us-central1.run.app/detect \
 
 ### Deployment
 
+**IMPORTANT:** Always build with `--platform linux/amd64` — Cloud Run requires x86_64 images. The default on Apple Silicon Macs is arm64 which will fail at runtime.
+
 ```bash
 cd watermarking-api
 ./build.sh
-docker build --platform linux/amd64 -t watermarking-api .
-# Push to Artifact Registry and deploy to Cloud Run
+docker build --platform linux/amd64 \
+  -t us-central1-docker.pkg.dev/watermarking-4a428/cloud-run-source-deploy/watermarking-api:latest .
+docker push us-central1-docker.pkg.dev/watermarking-4a428/cloud-run-source-deploy/watermarking-api:latest
+gcloud run deploy watermarking-api \
+  --image us-central1-docker.pkg.dev/watermarking-4a428/cloud-run-source-deploy/watermarking-api:latest \
+  --region us-central1 --project watermarking-4a428
 ```
 
 ## Shared Core Package

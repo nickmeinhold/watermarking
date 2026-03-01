@@ -1,7 +1,4 @@
 import 'dart:async';
-import 'dart:developer' as developer;
-
-import 'package:http/http.dart' as http;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:watermarking_core/models/detection_item.dart';
@@ -153,13 +150,6 @@ class DatabaseService {
     return profileSubscription?.cancel() ?? Future<dynamic>.value(null);
   }
 
-  Future<void> requestOriginalDelete(String entryId) {
-    return _db
-        .collection('originalImages')
-        .doc(entryId)
-        .update({'delete': true});
-  }
-
   /// Add an original image entry to the database
   Future<String> addOriginalImageEntry({
     required String name,
@@ -180,107 +170,6 @@ class DatabaseService {
     });
 
     return docRef.id;
-  }
-
-  /// Create a marking task to apply a watermark to an image
-  Future<String> addMarkingTask({
-    required String imageId,
-    required String imageName,
-    required String imagePath,
-    required String message,
-    required int strength,
-  }) async {
-    // 1. Create marked image placeholder entry
-    final markedRef = await _db.collection('markedImages').add({
-      'originalImageId': imageId,
-      'userId': userId,
-      'message': message,
-      'name': imageName,
-      'strength': strength,
-      'progress': 'Queued',
-      'createdAt': FieldValue.serverTimestamp(),
-    });
-
-    // 2. Create queue task to trigger backend processing
-    await _db.collection('tasks').add({
-      'type': 'mark',
-      'status': 'pending',
-      'userId': userId,
-      'markedImageId': markedRef.id,
-      'originalImageId': imageId,
-      'name': imageName,
-      'path': imagePath,
-      'message': message,
-      'strength': strength,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
-
-    _wakeUpBackend();
-    return markedRef.id;
-  }
-
-  Future<void> deleteOriginalImage(String originalImageId) async {
-    await _db.collection('tasks').add({
-      'type': 'delete_original_image',
-      'status': 'pending',
-      'userId': userId,
-      'originalImageId': originalImageId,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
-    _wakeUpBackend();
-  }
-
-  Future<void> requestMarkedImageDelete(String markedImageId) async {
-    await _db.collection('tasks').add({
-      'type': 'delete_marked_image',
-      'status': 'pending',
-      'userId': userId,
-      'markedImageId': markedImageId,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
-  }
-
-  Future<void> deleteDetectionItem(String detectionItemId) async {
-    await _db.collection('tasks').add({
-      'type': 'delete_detection_item',
-      'status': 'pending',
-      'userId': userId,
-      'detectionItemId': detectionItemId,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
-    _wakeUpBackend();
-  }
-
-  Future<void> addDetectingEntry({
-    required String itemId,
-    required String originalPath,
-    required String markedPath,
-    required bool isCaptured,
-  }) async {
-    // Set detecting status
-    await _db.collection('detecting').doc(userId).set({
-      'itemId': itemId,
-      'progress': 'Adding a detection task to the queue...',
-      'isDetecting': true,
-      'pathOriginal': originalPath,
-      'pathMarked': markedPath,
-      'isCaptured': isCaptured,
-      'attempts': 0,
-    });
-
-    // Create detection task
-    await _db.collection('tasks').add({
-      'type': 'detect',
-      'status': 'pending',
-      'userId': userId,
-      'itemId': itemId,
-      'pathOriginal': originalPath,
-      'pathMarked': markedPath,
-      'isCaptured': isCaptured,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
-
-    _wakeUpBackend();
   }
 
   Stream<dynamic> connectToDetecting() {
@@ -385,26 +274,5 @@ class DatabaseService {
 
   Future<dynamic> cancelDetectionItemsSubscription() {
     return detectionItemsSubscription?.cancel() ?? Future<dynamic>.value(null);
-  }
-
-  /// Pings the Cloud Run instance to ensure it scales up from zero
-  Future<void> _wakeUpBackend() async {
-    try {
-      // Access the health check endpoint
-      // We don't await the result because we don't want to block the UI
-      // or fail the operation if the backend is slow to respond.
-      // We just want to trigger the scaling.
-      http
-          .get(Uri.parse(
-              'https://watermarking-backend-78940960204.us-central1.run.app/'))
-          .then((_) {
-        // success
-      }).catchError((e) {
-        developer.log('Error waking up backend: $e', name: 'DatabaseService');
-      });
-    } catch (e) {
-      developer.log('Error triggering backend wake-up: $e',
-          name: 'DatabaseService');
-    }
   }
 }
