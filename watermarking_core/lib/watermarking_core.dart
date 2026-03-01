@@ -26,6 +26,7 @@ export 'services/auth_service.dart';
 export 'services/database_service.dart';
 export 'services/device_service.dart';
 export 'services/storage_service.dart';
+export 'services/watermarking_api_service.dart';
 
 // Utilities
 export 'utilities/hash_utilities.dart';

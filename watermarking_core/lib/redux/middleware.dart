@@ -27,29 +27,11 @@ List<Middleware<AppState>> createMiddlewares(
     TypedMiddleware<AppState, ActionProcessExtraction>(
       _processExtraction(databaseService, deviceService),
     ).call,
-    TypedMiddleware<AppState, ActionSetUploadSuccess>(
-      _startWatermarkDetection(databaseService),
-    ).call,
     TypedMiddleware<AppState, ActionCancelUpload>(
       _cancelUpload(storageService),
     ).call,
     TypedMiddleware<AppState, ActionUploadOriginalImage>(
       _uploadOriginalImage(databaseService, storageService),
-    ).call,
-    TypedMiddleware<AppState, ActionMarkImage>(
-      _markImage(databaseService),
-    ).call,
-    TypedMiddleware<AppState, ActionDeleteOriginalImage>(
-      _deleteOriginalImage(databaseService),
-    ).call,
-    TypedMiddleware<AppState, ActionDeleteMarkedImage>(
-      _deleteMarkedImage(databaseService),
-    ).call,
-    TypedMiddleware<AppState, ActionDeleteDetectionItem>(
-      _deleteDetectionItem(databaseService),
-    ).call,
-    TypedMiddleware<AppState, ActionDetectMarkedImage>(
-      _detectMarkedImage(databaseService),
     ).call,
   ];
 }
@@ -193,29 +175,6 @@ void Function(Store<AppState> store, ActionProcessExtraction action,
   };
 }
 
-void Function(Store<AppState> store, ActionSetUploadSuccess action,
-    NextDispatcher next) _startWatermarkDetection(
-  DatabaseService databaseService,
-) {
-  return (Store<AppState> store, ActionSetUploadSuccess action,
-      NextDispatcher next) {
-    next(action);
-    try {
-      final selectedImagePath = store.state.originals.selectedImage?.filePath;
-      if (selectedImagePath != null) {
-        databaseService.addDetectingEntry(
-            itemId: action.id,
-            originalPath: selectedImagePath,
-            markedPath: 'detecting-images/${store.state.user.id}/${action.id}',
-            isCaptured: true);
-      }
-    } catch (exception) {
-      // ignore: avoid_print
-      print(exception);
-    }
-  };
-}
-
 void Function(
         Store<AppState> store, ActionCancelUpload action, NextDispatcher next)
     _cancelUpload(StorageService storageService) {
@@ -263,118 +222,6 @@ void Function(Store<AppState> store, ActionUploadOriginalImage action,
       store.dispatch(ActionAddProblem(
         problem: Problem(
           type: ProblemType.imageUpload,
-          message: error.toString(),
-          trace: trace,
-        ),
-      ));
-    }
-  };
-}
-
-void Function(
-        Store<AppState> store, ActionMarkImage action, NextDispatcher next)
-    _markImage(DatabaseService databaseService) {
-  return (Store<AppState> store, ActionMarkImage action,
-      NextDispatcher next) async {
-    next(action);
-
-    try {
-      await databaseService.addMarkingTask(
-        imageId: action.imageId,
-        imageName: action.imageName,
-        imagePath: action.imagePath,
-        message: action.message,
-        strength: action.strength.round(),
-      );
-    } catch (error, trace) {
-      store.dispatch(ActionAddProblem(
-        problem: Problem(
-          type: ProblemType.marking,
-          message: error.toString(),
-          trace: trace,
-        ),
-      ));
-    }
-  };
-}
-
-void Function(Store<AppState> store, ActionDeleteOriginalImage action,
-    NextDispatcher next) _deleteOriginalImage(DatabaseService databaseService) {
-  return (Store<AppState> store, ActionDeleteOriginalImage action,
-      NextDispatcher next) async {
-    next(action);
-
-    try {
-      await databaseService.deleteOriginalImage(action.originalImageId);
-    } catch (error, trace) {
-      store.dispatch(ActionAddProblem(
-        problem: Problem(
-          type: ProblemType.images,
-          message: error.toString(),
-          trace: trace,
-        ),
-      ));
-    }
-  };
-}
-
-void Function(Store<AppState> store, ActionDeleteMarkedImage action,
-    NextDispatcher next) _deleteMarkedImage(DatabaseService databaseService) {
-  return (Store<AppState> store, ActionDeleteMarkedImage action,
-      NextDispatcher next) async {
-    next(action);
-
-    try {
-      await databaseService.requestMarkedImageDelete(action.markedImageId);
-    } catch (error, trace) {
-      store.dispatch(ActionAddProblem(
-        problem: Problem(
-          type: ProblemType.images,
-          message: error.toString(),
-          trace: trace,
-        ),
-      ));
-    }
-  };
-}
-
-void Function(Store<AppState> store, ActionDeleteDetectionItem action,
-    NextDispatcher next) _deleteDetectionItem(DatabaseService databaseService) {
-  return (Store<AppState> store, ActionDeleteDetectionItem action,
-      NextDispatcher next) async {
-    next(action);
-
-    try {
-      await databaseService.deleteDetectionItem(action.detectionItemId);
-    } catch (error, trace) {
-      store.dispatch(ActionAddProblem(
-        problem: Problem(
-          type: ProblemType.detection,
-          message: error.toString(),
-          trace: trace,
-        ),
-      ));
-    }
-  };
-}
-
-void Function(Store<AppState> store, ActionDetectMarkedImage action,
-    NextDispatcher next) _detectMarkedImage(DatabaseService databaseService) {
-  return (Store<AppState> store, ActionDetectMarkedImage action,
-      NextDispatcher next) async {
-    next(action);
-
-    try {
-      await databaseService.addDetectingEntry(
-        itemId: action.markedImageId,
-        originalPath: action.originalPath,
-        markedPath: action.markedPath,
-        isCaptured: false,
-      );
-    } catch (error, trace) {
-      store.dispatch(ActionAddProblem(
-        problem: Problem(
-          type: ProblemType.detection,
           message: error.toString(),
           trace: trace,
         ),
