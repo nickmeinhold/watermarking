@@ -1,6 +1,5 @@
 import 'dart:developer' as developer;
 
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:redux/redux.dart';
 import 'package:watermarking_core/watermarking_core.dart';
 
@@ -38,13 +37,6 @@ List<Middleware<AppState>> createApiMiddlewares(
   ];
 }
 
-/// Get a fresh Firebase Auth ID token and set it on the API service.
-Future<void> _refreshToken(WebWatermarkingApiService apiService) async {
-  final user = FirebaseAuth.instance.currentUser;
-  if (user == null) throw Exception('Not signed in');
-  apiService.idToken = await user.getIdToken();
-}
-
 /// Intercepts ActionMarkImage to process via REST API with GCS paths.
 /// Server downloads from GCS, processes, uploads result, writes Firestore.
 /// Client just sends GCS path — no image bytes transit the browser.
@@ -53,7 +45,6 @@ void Function(Store<AppState>, ActionMarkImage, NextDispatcher)
   return (store, action, next) async {
     // Do NOT call next(action) — prevents core middleware from creating a task doc.
     try {
-      await _refreshToken(apiService);
 
       // Stream SSE progress — server handles everything (GCS download, C++,
       // GCS upload, Firestore write). We just listen for errors.
@@ -91,7 +82,6 @@ void Function(Store<AppState>, ActionDetectMarkedImage, NextDispatcher)
   return (store, action, next) async {
     // Do NOT call next(action) — prevents core middleware from creating a task doc.
     try {
-      await _refreshToken(apiService);
 
       await for (final event in apiService.detectWatermarkGcs(
         originalPath: action.originalPath,
@@ -123,7 +113,7 @@ void Function(Store<AppState>, ActionDeleteOriginalImage, NextDispatcher)
   return (store, action, next) async {
     // Do NOT call next(action).
     try {
-      await _refreshToken(apiService);
+
       await apiService.deleteOriginal(action.originalImageId);
       // Firestore listeners will pick up the deletion.
     } catch (error, trace) {
@@ -146,7 +136,7 @@ void Function(Store<AppState>, ActionDeleteMarkedImage, NextDispatcher)
   return (store, action, next) async {
     // Do NOT call next(action).
     try {
-      await _refreshToken(apiService);
+
       await apiService.deleteMarked(action.markedImageId);
     } catch (error, trace) {
       developer.log('API delete marked error: $error',
@@ -168,7 +158,7 @@ void Function(Store<AppState>, ActionDeleteDetectionItem, NextDispatcher)
   return (store, action, next) async {
     // Do NOT call next(action).
     try {
-      await _refreshToken(apiService);
+
       await apiService.deleteDetection(action.detectionItemId);
     } catch (error, trace) {
       developer.log('API delete detection error: $error',

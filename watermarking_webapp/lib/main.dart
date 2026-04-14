@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_redux/flutter_redux.dart';
@@ -32,7 +33,18 @@ void main() async {
   final Store<AppState> store = Store<AppState>(appReducer,
       middleware: <Middleware<AppState>>[
         ...createApiMiddlewares(
-          WebWatermarkingApiService(baseUrl: apiUrl),
+          WebWatermarkingApiService(
+            baseUrl: apiUrl,
+            getIdToken: () async {
+              final user = FirebaseAuth.instance.currentUser;
+              if (user == null) throw Exception('Not signed in');
+              final token = await user.getIdToken();
+              if (token == null || token.isEmpty) {
+                throw Exception('Failed to get Firebase ID token');
+              }
+              return token;
+            },
+          ),
         ),
         ...createMiddlewares(
             authService, databaseService, deviceService, storageService),

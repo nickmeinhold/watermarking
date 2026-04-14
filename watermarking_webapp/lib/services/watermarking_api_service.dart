@@ -8,13 +8,17 @@ import 'package:web/web.dart' as web;
 ///
 /// Uses the browser Fetch API via `package:web` to consume SSE chunks from
 /// POST responses (browser EventSource only supports GET).
+///
+/// Tokens are fetched on demand via the [getIdToken] callback, so callers
+/// don't need to manually refresh tokens before each request.
 class WebWatermarkingApiService {
-  WebWatermarkingApiService({required this.baseUrl});
+  WebWatermarkingApiService({
+    required this.baseUrl,
+    required Future<String> Function() getIdToken,
+  }) : _getIdToken = getIdToken;
 
   final String baseUrl;
-
-  /// Firebase Auth ID token, set before making GCS requests.
-  String? idToken;
+  final Future<String> Function() _getIdToken;
 
   /// Watermark an image via GCS path (server downloads from GCS).
   ///
@@ -73,10 +77,7 @@ class WebWatermarkingApiService {
   /// POST JSON body and consume the SSE response stream.
   Stream<Map<String, dynamic>> _postJsonSse(
       String url, Map<String, dynamic> body) async* {
-    final token = idToken;
-    if (token == null || token.isEmpty) {
-      throw Exception('Not authenticated — no Firebase ID token');
-    }
+    final token = await _getIdToken();
 
     final headers = web.Headers();
     headers.append('Authorization', 'Bearer $token');
@@ -149,10 +150,7 @@ class WebWatermarkingApiService {
 
   /// Send an authenticated DELETE request.
   Future<void> _delete(String url) async {
-    final token = idToken;
-    if (token == null || token.isEmpty) {
-      throw Exception('Not authenticated — no Firebase ID token');
-    }
+    final token = await _getIdToken();
 
     final headers = web.Headers();
     headers.append('Authorization', 'Bearer $token');
