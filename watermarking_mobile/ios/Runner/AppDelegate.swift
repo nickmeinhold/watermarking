@@ -60,6 +60,8 @@ enum ChannelName {
             return
         }
         viewController.result = result
+        viewController.targetWidth = width
+        viewController.targetHeight = height
         controller.present(viewController, animated: true, completion: nil)
 
     }
