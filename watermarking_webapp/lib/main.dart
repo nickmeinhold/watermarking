@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_redux/flutter_redux.dart';
@@ -25,17 +26,25 @@ void main() async {
   final StorageService storageService = StorageService();
   final DeviceService deviceService = WebDeviceService();
 
-  // REST API integration — mark/detect go directly through the REST API.
-  const apiKey = String.fromEnvironment('WATERMARKING_API_KEY');
+  // REST API integration — mark/detect/delete go through the REST API.
   const apiUrl = String.fromEnvironment('WATERMARKING_API_URL',
       defaultValue: 'https://watermarking-api-78940960204.us-central1.run.app');
 
   final Store<AppState> store = Store<AppState>(appReducer,
       middleware: <Middleware<AppState>>[
         ...createApiMiddlewares(
-          WatermarkingApiService(apiKey: apiKey, baseUrl: apiUrl),
-          databaseService,
-          storageService,
+          WebWatermarkingApiService(
+            baseUrl: apiUrl,
+            getIdToken: () async {
+              final user = FirebaseAuth.instance.currentUser;
+              if (user == null) throw Exception('Not signed in');
+              final token = await user.getIdToken();
+              if (token == null || token.isEmpty) {
+                throw Exception('Failed to get Firebase ID token');
+              }
+              return token;
+            },
+          ),
         ),
         ...createMiddlewares(
             authService, databaseService, deviceService, storageService),
