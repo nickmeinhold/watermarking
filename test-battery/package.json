@@ -1,0 +1,16 @@
+{
+  "name": "watermark-test-battery",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Robustness test battery for the watermarking system",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:full": "TEST_MODE=full vitest run"
+  },
+  "devDependencies": {
+    "sharp": "^0.33.0",
+    "vitest": "^3.0.0"
+  }
+}
