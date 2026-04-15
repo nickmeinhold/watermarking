@@ -40,12 +40,13 @@ enum ChannelName {
 
         guard let arguments = call.arguments as? NSDictionary,
               let width = arguments["width"] as? Int,
-              let height = arguments["height"] as? Int else {
-            result(FlutterError(code: "INVALID_ARGS", message: "Missing width or height arguments", details: nil))
+              let height = arguments["height"] as? Int,
+              let imageUrl = arguments["imageUrl"] as? String else {
+            result(FlutterError(code: "INVALID_ARGS", message: "Missing width, height, or imageUrl arguments", details: nil))
             return
         }
 
-        print("\nwidth: \(width), height: \(height)\n")
+        print("\nwidth: \(width), height: \(height), imageUrl: \(imageUrl)\n")
 
         // navigate to DetectionViewController
         let storyboard = UIStoryboard(name: "Main", bundle: nil)
@@ -62,6 +63,7 @@ enum ChannelName {
         viewController.result = result
         viewController.targetWidth = width
         viewController.targetHeight = height
+        viewController.referenceImageUrl = imageUrl
         controller.present(viewController, animated: true, completion: nil)
 
     }

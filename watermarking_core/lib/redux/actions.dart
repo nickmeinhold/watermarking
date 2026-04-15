@@ -99,10 +99,16 @@ class ActionSetSelectedImage extends Action {
 }
 
 class ActionPerformExtraction extends Action {
-  ActionPerformExtraction({required this.width, required this.height})
-      : super(<String, Object>{'height': height, 'width': width});
+  ActionPerformExtraction(
+      {required this.width, required this.height, required this.imageUrl})
+      : super(<String, Object>{
+          'height': height,
+          'width': width,
+          'imageUrl': imageUrl,
+        });
   final int width;
   final int height;
+  final String imageUrl;
 }
 
 class ActionProcessExtraction extends Action {
