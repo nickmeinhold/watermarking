@@ -29,9 +29,13 @@ class MobileDeviceService implements DeviceService {
   Future<String> performExtraction({
     required int width,
     required int height,
+    required String imageUrl,
   }) async {
-    String path = await platform
-        .invokeMethod('startDetection', {'width': width, 'height': height});
+    String path = await platform.invokeMethod('startDetection', {
+      'width': width,
+      'height': height,
+      'imageUrl': imageUrl,
+    });
     platform.invokeMethod('dismiss');
     return path;
   }
