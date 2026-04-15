@@ -2,7 +2,9 @@
 See LICENSE folder for this sample's licensing information.
 
 Abstract:
-A view controller that recognizes and tracks images found in the user's environment.
+A view controller that recognizes and tracks a known image in the user's
+environment using ARKit image tracking, extracts the camera region via
+perspective correction, and accumulates frames for noise reduction.
 */
 
 import ARKit
@@ -21,14 +23,12 @@ class DetectionViewController: UIViewController {
     var targetWidth: Int = 512
     var targetHeight: Int = 512
 
+    /// URL of the original image to track (passed from Flutter).
+    var referenceImageUrl: String?
+
     var filter: CIFilter?
-    var foreground: CIImage?
-    var background: CIImage?
     var numCombined: Int = 0
     var accumulator: CIImageAccumulator?
-
-    /// An object that detects rectangular shapes in the user's environment.
-    let rectangleDetector = RectangleDetector()
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -39,7 +39,6 @@ class DetectionViewController: UIViewController {
             format: CIFormat.ARGB8
         )
 
-        rectangleDetector.delegate = self
         sceneView.delegate = self
 
         let tapRecognizer = UITapGestureRecognizer(target: self, action: #selector(tapDetected))
@@ -54,43 +53,155 @@ class DetectionViewController: UIViewController {
 		// Prevent the screen from being dimmed after a while.
 		UIApplication.shared.isIdleTimerDisabled = true
 
-        // Reset accumulator state for fresh detection
+        // Reset accumulator state for fresh detection.
         numCombined = 0
-        background = nil
-        foreground = nil
         imageView.image = nil
 
-        let configuration = ARImageTrackingConfiguration()
-        configuration.maximumNumberOfTrackedImages = 1
-        configuration.trackingImages = []
-        sceneView.session.run(configuration, options: [.removeExistingAnchors, .resetTracking])
+        guard let urlString = referenceImageUrl, let url = URL(string: urlString) else {
+            result?(FlutterError(code: "NO_URL", message: "No reference image URL provided", details: nil))
+            return
+        }
+
+        // Download the reference image and configure ARKit image tracking.
+        URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
+            guard let self = self,
+                  let data = data,
+                  let uiImage = UIImage(data: data),
+                  let cgImage = uiImage.cgImage else {
+                DispatchQueue.main.async {
+                    self?.result?(FlutterError(
+                        code: "DOWNLOAD_ERROR",
+                        message: "Failed to download reference image",
+                        details: error?.localizedDescription
+                    ))
+                }
+                return
+            }
+
+            // Create ARReferenceImage with estimated physical size.
+            // 0.2m (20cm) width is a reasonable default for a printed image.
+            let aspectRatio = CGFloat(cgImage.height) / CGFloat(cgImage.width)
+            let physicalWidth: CGFloat = 0.2
+            let physicalSize = CGSize(width: physicalWidth, height: physicalWidth * aspectRatio)
+            let referenceImage = ARReferenceImage(cgImage, orientation: .up, physicalSize: physicalSize)
+            referenceImage.name = "watermarked-original"
+
+            DispatchQueue.main.async {
+                let configuration = ARImageTrackingConfiguration()
+                configuration.maximumNumberOfTrackedImages = 1
+                configuration.trackingImages = [referenceImage]
+                self.sceneView.session.run(configuration, options: [.removeExistingAnchors, .resetTracking])
+            }
+        }.resume()
 	}
 
     /// Handles tap gesture input.
     @IBAction func didTap(_ sender: Any) {
 
     }
+
+    // MARK: - Image Extraction from ARImageAnchor
+
+    /// Projects the tracked image's 3D corners to 2D camera coordinates,
+    /// extracts the region via perspective correction, and accumulates frames.
+    private func extractAndAccumulate(from imageAnchor: ARImageAnchor, frame: ARFrame) {
+        let referenceSize = imageAnchor.referenceImage.physicalSize
+        let halfW = Float(referenceSize.width / 2)
+        let halfH = Float(referenceSize.height / 2)
+
+        // Image corners in anchor-local 3D space.
+        // ARKit: image lies in XZ plane, Y is the surface normal.
+        let localCorners: [simd_float4] = [
+            simd_float4(-halfW, 0, -halfH, 1),  // top-left
+            simd_float4( halfW, 0, -halfH, 1),  // top-right
+            simd_float4(-halfW, 0,  halfH, 1),  // bottom-left
+            simd_float4( halfW, 0,  halfH, 1),  // bottom-right
+        ]
+
+        let anchorTransform = imageAnchor.transform
+        let camera = frame.camera
+        let imageResolution = camera.imageResolution
+        let viewportSize = CGSize(width: imageResolution.width, height: imageResolution.height)
+
+        // Project each 3D corner to 2D pixel coordinates.
+        let pixelCorners = localCorners.map { localPoint -> CGPoint in
+            let worldPoint = anchorTransform * localPoint
+            return camera.projectPoint(
+                simd_float3(worldPoint.x, worldPoint.y, worldPoint.z),
+                orientation: .portrait,
+                viewportSize: viewportSize
+            )
+        }
+
+        // Create CIImage from camera pixel buffer.
+        let ciImage = CIImage(cvPixelBuffer: frame.capturedImage).oriented(.right)
+        let h = ciImage.extent.height
+
+        // Apply perspective correction.
+        // CIImage origin is bottom-left, so flip Y.
+        guard let perspectiveFilter = CIFilter(name: "CIPerspectiveCorrection") else { return }
+        perspectiveFilter.setValue(CIVector(cgPoint: CGPoint(x: pixelCorners[0].x, y: h - pixelCorners[0].y)), forKey: "inputTopLeft")
+        perspectiveFilter.setValue(CIVector(cgPoint: CGPoint(x: pixelCorners[1].x, y: h - pixelCorners[1].y)), forKey: "inputTopRight")
+        perspectiveFilter.setValue(CIVector(cgPoint: CGPoint(x: pixelCorners[2].x, y: h - pixelCorners[2].y)), forKey: "inputBottomLeft")
+        perspectiveFilter.setValue(CIVector(cgPoint: CGPoint(x: pixelCorners[3].x, y: h - pixelCorners[3].y)), forKey: "inputBottomRight")
+        perspectiveFilter.setValue(ciImage, forKey: kCIInputImageKey)
+
+        guard let corrected = perspectiveFilter.outputImage else { return }
+
+        // Resize to target dimensions.
+        let targetSize = CGSize(width: targetWidth, height: targetHeight)
+        guard let resized = corrected.resize(to: targetSize) else { return }
+
+        // Translate to origin (resize preserves original extent origin).
+        let translated = resized.transformed(by: CGAffineTransform(
+            translationX: -resized.extent.origin.x,
+            y: -resized.extent.origin.y
+        ))
+
+        // Accumulate for noise reduction using WeightedCombine Metal filter.
+        numCombined += 1
+
+        if numCombined == 1 {
+            accumulator?.setImage(translated)
+        } else if let currentAccumulated = accumulator?.image() {
+            filter?.setValue(translated, forKey: kCIInputImageKey)
+            filter?.setValue(currentAccumulated, forKey: "inputBackgroundImage")
+            filter?.setValue(NSNumber(value: numCombined - 1), forKey: "inputScale")
+
+            if let combined = filter?.outputImage {
+                accumulator?.setImage(combined)
+            }
+        }
+
+        guard let displayImage = accumulator?.image() else { return }
+        DispatchQueue.main.async {
+            self.imageView.image = UIImage(ciImage: displayImage)
+        }
+    }
 }
 
 extension DetectionViewController: ARSCNViewDelegate {
 
-    /// - Tag: ImageWasRecognized
+    /// Called when ARKit first detects the tracked image.
     func renderer(_ renderer: SCNSceneRenderer, didAdd node: SCNNode, for anchor: ARAnchor) {
-
+        guard let imageAnchor = anchor as? ARImageAnchor,
+              let frame = sceneView.session.currentFrame else { return }
+        extractAndAccumulate(from: imageAnchor, frame: frame)
     }
 
-    /// - Tag: DidUpdateAnchor
+    /// Called each frame while the tracked image is visible.
     func renderer(_ renderer: SCNSceneRenderer, didUpdate node: SCNNode, for anchor: ARAnchor) {
-
+        guard let imageAnchor = anchor as? ARImageAnchor,
+              imageAnchor.isTracked,
+              let frame = sceneView.session.currentFrame else { return }
+        extractAndAccumulate(from: imageAnchor, frame: frame)
     }
 
     func session(_ session: ARSession, didFailWithError error: Error) {
         guard let arError = error as? ARError else { return }
 
         if arError.code == .invalidReferenceImage {
-            // Restart the experience, as otherwise the AR session remains stopped.
-            // There's no benefit in surfacing this error to the user.
-            print("Error: The detected rectangle cannot be tracked.")
+            print("Error: The reference image could not be tracked.")
             return
         }
 
@@ -101,11 +212,9 @@ extension DetectionViewController: ARSCNViewDelegate {
             errorWithInfo.localizedRecoverySuggestion
         ]
 
-        // Use `compactMap(_:)` to remove optional error messages.
         let errorMessage = messages.compactMap { $0 }.joined(separator: "\n")
 
         DispatchQueue.main.async {
-            // Present an alert informing about the error that just occurred.
             let alertController = UIAlertController(
                 title: "The AR session failed.",
                 message: errorMessage,
@@ -126,7 +235,7 @@ extension DetectionViewController: ARSCNViewDelegate {
             return
         }
 
-        // Use UIGraphicsImageRenderer for modern image drawing
+        // Use UIGraphicsImageRenderer for modern image drawing.
         let renderer = UIGraphicsImageRenderer(size: originalImage.size)
         let newImage = renderer.image { _ in
             originalImage.draw(in: CGRect(origin: .zero, size: originalImage.size))
@@ -159,36 +268,15 @@ extension DetectionViewController: ARSCNViewDelegate {
     }
 }
 
-extension DetectionViewController: RectangleDetectorDelegate {
-    /// Called when the app recognized a rectangular shape in the user's environment.
-    /// - Tag: NewAlteredImage
-    func rectangleFound(rectangleContent: CIImage) {
-        // Skip accumulation - just show the latest frame directly
-        DispatchQueue.main.async {
-            self.imageView.image = UIImage.init(ciImage: rectangleContent)
-        }
-    }
-}
-
-// placeholder extension for editing later
-// TODO(nickm): take the code from tapDetected() and turn into an extension
 extension UIImage {
 
-    /**
-     Creates the JPEG data out of an UIImage
-     @return Data
-     */
-
+    /// Creates the JPEG data out of an UIImage.
     func generateJPEGRepresentation() -> Data? {
         let newImage = self.copyOriginalImage()
         return newImage?.jpegData(compressionQuality: 0.75)
     }
 
-    /**
-     Copies Original Image which fixes the crash for extracting Data from UIImage
-     @return UIImage
-     */
-
+    /// Copies original image, which fixes the crash for extracting Data from UIImage.
     private func copyOriginalImage() -> UIImage? {
         let renderer = UIGraphicsImageRenderer(size: self.size)
         return renderer.image { _ in
