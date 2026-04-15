@@ -18,6 +18,8 @@ class DetectionViewController: UIViewController {
     static var instance: DetectionViewController?
 
     var result: FlutterResult?
+    var targetWidth: Int = 512
+    var targetHeight: Int = 512
 
     var filter: CIFilter?
     var foreground: CIImage?
@@ -33,7 +35,7 @@ class DetectionViewController: UIViewController {
 
         filter = CIFilter(name: "WeightedCombine")
         accumulator = CIImageAccumulator(
-            extent: CGRect(x: 0, y: 0, width: 512, height: 512),
+            extent: CGRect(x: 0, y: 0, width: targetWidth, height: targetHeight),
             format: CIFormat.ARGB8
         )
 
