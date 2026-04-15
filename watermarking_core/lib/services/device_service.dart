@@ -8,6 +8,7 @@ abstract class DeviceService {
   Future<String> performExtraction({
     required int width,
     required int height,
+    required String imageUrl,
   });
 
   /// Find the size of a file in bytes.

@@ -144,7 +144,8 @@ class AppWidget extends StatelessWidget {
                         StoreProvider.of<AppState>(context).dispatch(
                             ActionPerformExtraction(
                                 width: viewModel.selectedWidth ?? 512,
-                                height: viewModel.selectedHeight ?? 512));
+                                height: viewModel.selectedHeight ?? 512,
+                                imageUrl: viewModel.selectedImage!.url!));
                       }
                     : null,
                 tooltip: 'Camera',

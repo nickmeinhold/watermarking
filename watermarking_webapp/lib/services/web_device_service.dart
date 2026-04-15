@@ -5,7 +5,8 @@ import 'package:watermarking_core/watermarking_core.dart';
 /// so these methods are not used in the same way as mobile.
 class WebDeviceService implements DeviceService {
   @override
-  Future<String> performExtraction({required int width, required int height}) {
+  Future<String> performExtraction(
+      {required int width, required int height, required String imageUrl}) {
     // Web detection uses file upload, not camera capture
     throw UnsupportedError('Web does not support camera extraction. Use file upload instead.');
   }

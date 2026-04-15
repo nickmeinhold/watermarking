@@ -153,7 +153,9 @@ void Function(Store<AppState> store, ActionPerformExtraction action,
     next(action);
 
     final String path = await deviceService.performExtraction(
-        width: action.width, height: action.height);
+        width: action.width,
+        height: action.height,
+        imageUrl: action.imageUrl);
 
     store.dispatch(ActionProcessExtraction(filePath: path));
   };
