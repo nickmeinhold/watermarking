@@ -42,7 +42,11 @@ enum ChannelName {
               let width = arguments["width"] as? Int,
               let height = arguments["height"] as? Int,
               let imageUrl = arguments["imageUrl"] as? String else {
-            result(FlutterError(code: "INVALID_ARGS", message: "Missing width, height, or imageUrl arguments", details: nil))
+            result(FlutterError(
+                code: "INVALID_ARGS",
+                message: "Missing width, height, or imageUrl",
+                details: nil
+            ))
             return
         }
 

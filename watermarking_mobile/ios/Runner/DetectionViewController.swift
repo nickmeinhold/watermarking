@@ -63,7 +63,7 @@ class DetectionViewController: UIViewController {
         }
 
         // Download the reference image and configure ARKit image tracking.
-        URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
+        URLSession.shared.dataTask(with: url) { [weak self] data, _, error in
             guard let self = self,
                   let data = data,
                   let uiImage = UIImage(data: data),
@@ -112,10 +112,10 @@ class DetectionViewController: UIViewController {
         // Image corners in anchor-local 3D space.
         // ARKit: image lies in XZ plane, Y is the surface normal.
         let localCorners: [simd_float4] = [
-            simd_float4(-halfW, 0, -halfH, 1),  // top-left
-            simd_float4( halfW, 0, -halfH, 1),  // top-right
-            simd_float4(-halfW, 0,  halfH, 1),  // bottom-left
-            simd_float4( halfW, 0,  halfH, 1),  // bottom-right
+            simd_float4(-halfW, 0, -halfH, 1),
+            simd_float4(halfW, 0, -halfH, 1),
+            simd_float4(-halfW, 0, halfH, 1),
+            simd_float4(halfW, 0, halfH, 1)
         ]
 
         let anchorTransform = imageAnchor.transform
@@ -139,35 +139,49 @@ class DetectionViewController: UIViewController {
 
         // Apply perspective correction.
         // CIImage origin is bottom-left, so flip Y.
-        guard let perspectiveFilter = CIFilter(name: "CIPerspectiveCorrection") else { return }
-        perspectiveFilter.setValue(CIVector(cgPoint: CGPoint(x: pixelCorners[0].x, y: h - pixelCorners[0].y)), forKey: "inputTopLeft")
-        perspectiveFilter.setValue(CIVector(cgPoint: CGPoint(x: pixelCorners[1].x, y: h - pixelCorners[1].y)), forKey: "inputTopRight")
-        perspectiveFilter.setValue(CIVector(cgPoint: CGPoint(x: pixelCorners[2].x, y: h - pixelCorners[2].y)), forKey: "inputBottomLeft")
-        perspectiveFilter.setValue(CIVector(cgPoint: CGPoint(x: pixelCorners[3].x, y: h - pixelCorners[3].y)), forKey: "inputBottomRight")
-        perspectiveFilter.setValue(ciImage, forKey: kCIInputImageKey)
+        guard let corrected = perspectiveCorrected(
+            ciImage, corners: pixelCorners, height: h
+        ) else { return }
 
-        guard let corrected = perspectiveFilter.outputImage else { return }
-
-        // Resize to target dimensions.
+        // Resize to target dimensions and translate to origin.
         let targetSize = CGSize(width: targetWidth, height: targetHeight)
         guard let resized = corrected.resize(to: targetSize) else { return }
-
-        // Translate to origin (resize preserves original extent origin).
         let translated = resized.transformed(by: CGAffineTransform(
             translationX: -resized.extent.origin.x,
             y: -resized.extent.origin.y
         ))
 
-        // Accumulate for noise reduction using WeightedCombine Metal filter.
+        accumulate(translated)
+    }
+
+    /// Applies CIPerspectiveCorrection with Y-flipped coordinates.
+    private func perspectiveCorrected(
+        _ image: CIImage, corners: [CGPoint], height h: CGFloat
+    ) -> CIImage? {
+        guard let filter = CIFilter(name: "CIPerspectiveCorrection") else {
+            return nil
+        }
+        let keys = ["inputTopLeft", "inputTopRight", "inputBottomLeft", "inputBottomRight"]
+        for (i, key) in keys.enumerated() {
+            let pt = CGPoint(x: corners[i].x, y: h - corners[i].y)
+            filter.setValue(CIVector(cgPoint: pt), forKey: key)
+        }
+        filter.setValue(image, forKey: kCIInputImageKey)
+        return filter.outputImage
+    }
+
+    /// Accumulates a frame using WeightedCombine for noise reduction.
+    private func accumulate(_ frame: CIImage) {
         numCombined += 1
 
         if numCombined == 1 {
-            accumulator?.setImage(translated)
-        } else if let currentAccumulated = accumulator?.image() {
-            filter?.setValue(translated, forKey: kCIInputImageKey)
-            filter?.setValue(currentAccumulated, forKey: "inputBackgroundImage")
-            filter?.setValue(NSNumber(value: numCombined - 1), forKey: "inputScale")
-
+            accumulator?.setImage(frame)
+        } else if let current = accumulator?.image() {
+            filter?.setValue(frame, forKey: kCIInputImageKey)
+            filter?.setValue(current, forKey: "inputBackgroundImage")
+            filter?.setValue(
+                NSNumber(value: numCombined - 1), forKey: "inputScale"
+            )
             if let combined = filter?.outputImage {
                 accumulator?.setImage(combined)
             }
@@ -232,7 +246,7 @@ class DetectionViewController: UIViewController {
                     SCNAction.wait(duration: delay),
                     shrink,
                     flash,
-                    settle,
+                    settle
                 ])
 
                 circleNode.runAction(sequence)
