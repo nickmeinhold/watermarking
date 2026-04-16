@@ -1249,13 +1249,17 @@ class DetectionResultCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Image thumbnail
+            // Image thumbnail (tap to expand)
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: SizedBox(
                 width: 100,
                 height: 100,
-                child: imageWidget,
+                child: TappableImage(
+                  imageWidget: imageWidget,
+                  tag: 'detection-result-image',
+                  title: 'Detected Image',
+                ),
               ),
             ),
             const SizedBox(width: 16),
@@ -1380,7 +1384,11 @@ class ImageComparisonCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(8),
                         child: AspectRatio(
                           aspectRatio: 1,
-                          child: originalImageWidget,
+                          child: TappableImage(
+                            imageWidget: originalImageWidget,
+                            tag: 'comparison-original',
+                            title: 'Original',
+                          ),
                         ),
                       ),
                     ],
@@ -1404,7 +1412,11 @@ class ImageComparisonCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(8),
                         child: AspectRatio(
                           aspectRatio: 1,
-                          child: capturedImageWidget,
+                          child: TappableImage(
+                            imageWidget: capturedImageWidget,
+                            tag: 'comparison-captured',
+                            title: 'Captured',
+                          ),
                         ),
                       ),
                     ],
@@ -1420,6 +1432,98 @@ class ImageComparisonCard extends StatelessWidget {
 }
 
 /// Helper widget for placeholder images.
+/// Wraps an image widget to make it tappable for full-screen viewing.
+///
+/// Adds a subtle zoom icon overlay and opens [FullScreenImageViewer] on tap
+/// with a Hero animation for smooth transition.
+class TappableImage extends StatelessWidget {
+  const TappableImage({
+    super.key,
+    required this.imageWidget,
+    required this.tag,
+    this.title,
+  });
+
+  /// The image widget to display and expand on tap.
+  final Widget imageWidget;
+
+  /// Unique Hero tag for the animation.
+  final String tag;
+
+  /// Optional title shown in the full-screen app bar.
+  final String? title;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => FullScreenImageViewer(
+              imageWidget: imageWidget,
+              tag: tag,
+              title: title,
+            ),
+          ),
+        );
+      },
+      child: Hero(
+        tag: tag,
+        child: Stack(
+          alignment: Alignment.bottomRight,
+          children: [
+            imageWidget,
+            Padding(
+              padding: const EdgeInsets.all(4),
+              child: Icon(
+                Icons.zoom_in,
+                size: 18,
+                color: Colors.white.withValues(alpha: 0.8),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Full-screen image viewer with pinch-to-zoom via [InteractiveViewer].
+class FullScreenImageViewer extends StatelessWidget {
+  const FullScreenImageViewer({
+    super.key,
+    required this.imageWidget,
+    required this.tag,
+    this.title,
+  });
+
+  final Widget imageWidget;
+  final String tag;
+  final String? title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: title != null ? Text(title!) : null,
+      ),
+      body: Center(
+        child: Hero(
+          tag: tag,
+          child: InteractiveViewer(
+            minScale: 0.5,
+            maxScale: 4.0,
+            child: imageWidget,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class ImagePlaceholder extends StatelessWidget {
   const ImagePlaceholder({super.key, required this.text});
   final String text;

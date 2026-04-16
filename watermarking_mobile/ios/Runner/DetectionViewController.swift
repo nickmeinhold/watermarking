@@ -178,6 +178,68 @@ class DetectionViewController: UIViewController {
             self.imageView.image = UIImage(ciImage: displayImage)
         }
     }
+
+    // MARK: - Feature Circle Visualization
+
+    /// Adds animated green circles on the tracked image surface to show
+    /// feature tracking. Circles start large, shrink to enclose the feature
+    /// point, then flash.
+    private func addFeatureCircles(to node: SCNNode, for imageAnchor: ARImageAnchor) {
+        let size = imageAnchor.referenceImage.physicalSize
+        let halfW = Float(size.width / 2)
+        let halfH = Float(size.height / 2)
+
+        // Create a grid of feature points across the image surface.
+        let cols = 5
+        let rows = 5
+        let finalRadius: CGFloat = 0.003  // 3mm circle at rest
+        let startScale: Float = 5.0       // Start 5x larger
+
+        for row in 0..<rows {
+            for col in 0..<cols {
+                // Position in anchor-local space (XZ plane, Y is normal).
+                let x = -halfW + Float(col) * (2 * halfW) / Float(cols - 1)
+                let z = -halfH + Float(row) * (2 * halfH) / Float(rows - 1)
+
+                // Green circle as a small flat disc.
+                let circle = SCNPlane(width: finalRadius * 2, height: finalRadius * 2)
+                circle.cornerRadius = finalRadius
+                circle.firstMaterial?.diffuse.contents = UIColor.green
+                circle.firstMaterial?.isDoubleSided = true
+                circle.firstMaterial?.emission.contents = UIColor.green
+
+                let circleNode = SCNNode(geometry: circle)
+                // Lay flat on the image surface (rotate from XY to XZ plane).
+                circleNode.eulerAngles.x = -.pi / 2
+                circleNode.position = SCNVector3(x, 0.001, z)  // Slightly above surface
+                circleNode.scale = SCNVector3(startScale, startScale, startScale)
+                circleNode.opacity = 0.8
+
+                // Stagger animation start per circle.
+                let delay = Double(row * cols + col) * 0.03
+
+                // Animation: shrink → flash → settle.
+                let shrink = SCNAction.scale(to: 1.0, duration: 0.4)
+                shrink.timingMode = .easeOut
+
+                let flashOn = SCNAction.fadeOpacity(to: 1.0, duration: 0.1)
+                let flashOff = SCNAction.fadeOpacity(to: 0.4, duration: 0.1)
+                let flash = SCNAction.sequence([flashOn, flashOff, flashOn, flashOff])
+
+                let settle = SCNAction.fadeOpacity(to: 0.6, duration: 0.3)
+
+                let sequence = SCNAction.sequence([
+                    SCNAction.wait(duration: delay),
+                    shrink,
+                    flash,
+                    settle,
+                ])
+
+                circleNode.runAction(sequence)
+                node.addChildNode(circleNode)
+            }
+        }
+    }
 }
 
 extension DetectionViewController: ARSCNViewDelegate {
@@ -187,6 +249,7 @@ extension DetectionViewController: ARSCNViewDelegate {
         guard let imageAnchor = anchor as? ARImageAnchor,
               let frame = sceneView.session.currentFrame else { return }
         extractAndAccumulate(from: imageAnchor, frame: frame)
+        addFeatureCircles(to: node, for: imageAnchor)
     }
 
     /// Called each frame while the tracked image is visible.
