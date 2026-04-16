@@ -80,10 +80,10 @@ class DetectionViewController: UIViewController {
 
             // Create ARReferenceImage with estimated physical size.
             // 0.2m (20cm) width is a reasonable default for a printed image.
-            let aspectRatio = CGFloat(cgImage.height) / CGFloat(cgImage.width)
             let physicalWidth: CGFloat = 0.2
-            let physicalSize = CGSize(width: physicalWidth, height: physicalWidth * aspectRatio)
-            let referenceImage = ARReferenceImage(cgImage, orientation: .up, physicalSize: physicalSize)
+            let referenceImage = ARReferenceImage(
+                cgImage, orientation: .up, physicalWidth: physicalWidth
+            )
             referenceImage.name = "watermarked-original"
 
             DispatchQueue.main.async {
