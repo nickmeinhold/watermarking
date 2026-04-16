@@ -13,8 +13,8 @@ Digital watermarking system for embedding and detecting invisible messages in im
 watermarking_mobile         watermarking_webapp          watermarking-docker
    (Flutter/iOS)              (Flutter Web)               (Node.js + C++)
        |                            |                            |
- Local rectangle               Web interface             Backend processing
- detection + upload            for management            mark & detect engines
+ ARKit image tracking          Web interface             Backend processing
+ + upload                      for management            mark & detect engines
                                                                  |
                                                         watermarking-functions
                                                             (C++ library)
@@ -33,11 +33,12 @@ watermarking_mobile         watermarking_webapp          watermarking-docker
 | Directory | Purpose | Tech Stack |
 |-----------|---------|------------|
 | `watermarking_core/` | Shared Flutter package - models, Redux state, services, visualization widgets | Flutter, Redux, Firebase, fl_chart |
-| `watermarking_mobile/` | Mobile app - captures images, detects rectangles (iOS only), uploads for processing | Flutter, ARKit, Vision Framework, Metal |
+| `watermarking_mobile/` | Mobile app - captures images via ARKit image tracking (iOS), uploads for processing | Flutter, ARKit, Metal |
 | `watermarking_webapp/` | Web interface - upload originals, view marked images, trigger detection | Flutter Web, Firebase, Material 3 |
 | `watermarking-docker/` | Backend - queue-based processing, runs C++ mark/detect binaries | Node.js, Docker, Firebase Queue |
 | `watermarking-api/` | REST API - standalone watermarking and detection service with SSE progress streaming | Node.js, Express, Docker, Cloud Run |
 | `watermarking-functions/` | Core algorithms - DFT-based watermark embedding/extraction (**private submodule**) | C++, OpenCV, Boost |
+| `test-battery/` | Robustness test suite - validates watermark survival across distortions (compression, blur, noise, rotation, etc.) | Node.js, Vitest, sharp |
 
 ## Detection Flow
 
@@ -438,9 +439,17 @@ All components connect to: `watermarking-4a428`
 
 Active development. iOS-first project with functional web and backend components.
 
-### Recent Updates (Jan 2026)
+### Recent Updates (Apr 2026)
 
-- **REST API**: New standalone watermarking and detection API deployed on Cloud Run with SSE progress streaming, API key auth, rate limiting, and CORS support
+- **Direct API Calls**: Replaced Firestore task queue with direct REST API calls from mobile and web apps (PR #26)
+- **API Modularization**: Split 999-line server.js into 10 focused modules (auth, config, routes, etc.)
+- **ARKit Image Tracking**: Replacing rectangle detection with feature-based image matching using ARKit (PR #30, #31)
+- **Robustness Test Battery**: New test suite validating watermark survival across 19 distortion types (compression, blur, noise, rotation, combined attacks)
+- **iOS Target Dimensions**: Fixed forwarding of target dimensions to DetectionViewController (PR #28)
+
+### Earlier Updates (Jan 2026)
+
+- **REST API**: Standalone watermarking and detection API deployed on Cloud Run with SSE progress streaming, API key auth, rate limiting, and CORS support
 - **Shared Visualization Widgets**: Detection statistics charts moved to `watermarking_core` for reuse across mobile and web
 - **Web Detection Details**: Click detection history items to view full statistics in a dialog with responsive two-column layout
 - **Extended Detection Statistics**: C++ detection now outputs comprehensive stats (timing, per-sequence PSNR, correlation matrix stats, peak positions)
