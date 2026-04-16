@@ -29,6 +29,9 @@ class DetectionViewController: UIViewController {
     var filter: CIFilter?
     var numCombined: Int = 0
     var accumulator: CIImageAccumulator?
+    /// Reusable context for force-rendering CIImages.
+    /// Breaks lazy evaluation chains that reference recycled pixel buffers.
+    let ciContext = CIContext(options: [.useSoftwareRenderer: false])
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -170,20 +173,48 @@ class DetectionViewController: UIViewController {
         return filter.outputImage
     }
 
-    /// Accumulates a frame using WeightedCombine for noise reduction.
-    private func accumulate(_ frame: CIImage) {
+    /// Accumulates frames using WeightedCombine for noise reduction.
+    ///
+    /// Each frame is force-rendered via CIContext.createCGImage to break
+    /// the lazy evaluation chain — ARKit recycles its pixel buffers every
+    /// frame, so any CIImage still referencing one becomes invalid.
+    private func accumulate(_ lazyFrame: CIImage) {
+        let extent = CGRect(
+            x: 0, y: 0,
+            width: targetWidth, height: targetHeight
+        )
+
+        // Force-render to break lazy reference to ARKit's pixel buffer.
+        guard let cgFrame = ciContext.createCGImage(
+            lazyFrame, from: extent
+        ) else { return }
+        let frame = CIImage(cgImage: cgFrame)
+
         numCombined += 1
 
         if numCombined == 1 {
             accumulator?.setImage(frame)
         } else if let current = accumulator?.image() {
+            // Force-render the current accumulated state too,
+            // to avoid read-while-write on the accumulator buffer.
+            guard let cgCurrent = ciContext.createCGImage(
+                current, from: extent
+            ) else { return }
+            let renderedCurrent = CIImage(cgImage: cgCurrent)
+
             filter?.setValue(frame, forKey: kCIInputImageKey)
-            filter?.setValue(current, forKey: "inputBackgroundImage")
+            filter?.setValue(
+                renderedCurrent, forKey: "inputBackgroundImage"
+            )
             filter?.setValue(
                 NSNumber(value: numCombined - 1), forKey: "inputScale"
             )
-            if let combined = filter?.outputImage {
-                accumulator?.setImage(combined)
+
+            if let combined = filter?.outputImage,
+               let cgCombined = ciContext.createCGImage(
+                   combined, from: extent
+               ) {
+                accumulator?.setImage(CIImage(cgImage: cgCombined))
             }
         }
 
@@ -193,65 +224,112 @@ class DetectionViewController: UIViewController {
         }
     }
 
-    // MARK: - Feature Circle Visualization
+    // MARK: - Tracking Boundary Visualization
 
-    /// Adds animated green circles on the tracked image surface to show
-    /// feature tracking. Circles start large, shrink to enclose the feature
-    /// point, then flash.
-    private func addFeatureCircles(to node: SCNNode, for imageAnchor: ARImageAnchor) {
+    /// Adds an animated green border around the tracked image to show
+    /// that ARKit has found and is tracking it.
+    private func addTrackingBorder(
+        to node: SCNNode, for imageAnchor: ARImageAnchor
+    ) {
         let size = imageAnchor.referenceImage.physicalSize
-        let halfW = Float(size.width / 2)
-        let halfH = Float(size.height / 2)
+        let w = Float(size.width)
+        let h = Float(size.height)
+        let halfW = w / 2
+        let halfH = h / 2
+        let thickness: CGFloat = 0.002  // 2mm border
 
-        // Create a grid of feature points across the image surface.
-        let cols = 5
-        let rows = 5
-        let finalRadius: CGFloat = 0.003  // 3mm circle at rest
-        let startScale: Float = 5.0       // Start 5x larger
+        // Four edges of the tracked image boundary.
+        let edges: [(CGSize, SCNVector3)] = [
+            // top edge
+            (CGSize(width: CGFloat(w), height: thickness),
+             SCNVector3(0, 0.001, -halfH)),
+            // bottom edge
+            (CGSize(width: CGFloat(w), height: thickness),
+             SCNVector3(0, 0.001, halfH)),
+            // left edge
+            (CGSize(width: thickness, height: CGFloat(h)),
+             SCNVector3(-halfW, 0.001, 0)),
+            // right edge
+            (CGSize(width: thickness, height: CGFloat(h)),
+             SCNVector3(halfW, 0.001, 0))
+        ]
 
-        for row in 0..<rows {
-            for col in 0..<cols {
-                // Position in anchor-local space (XZ plane, Y is normal).
-                let x = -halfW + Float(col) * (2 * halfW) / Float(cols - 1)
-                let z = -halfH + Float(row) * (2 * halfH) / Float(rows - 1)
+        for (i, (edgeSize, pos)) in edges.enumerated() {
+            let plane = SCNPlane(
+                width: edgeSize.width, height: edgeSize.height
+            )
+            plane.firstMaterial?.diffuse.contents = UIColor.green
+            plane.firstMaterial?.isDoubleSided = true
+            plane.firstMaterial?.emission.contents = UIColor.green
 
-                // Green circle as a small flat disc.
-                let circle = SCNPlane(width: finalRadius * 2, height: finalRadius * 2)
-                circle.cornerRadius = finalRadius
-                circle.firstMaterial?.diffuse.contents = UIColor.green
-                circle.firstMaterial?.isDoubleSided = true
-                circle.firstMaterial?.emission.contents = UIColor.green
+            let edgeNode = SCNNode(geometry: plane)
+            edgeNode.eulerAngles.x = -.pi / 2
+            edgeNode.position = pos
+            edgeNode.opacity = 0
 
-                let circleNode = SCNNode(geometry: circle)
-                // Lay flat on the image surface (rotate from XY to XZ plane).
-                circleNode.eulerAngles.x = -.pi / 2
-                circleNode.position = SCNVector3(x, 0.001, z)  // Slightly above surface
-                circleNode.scale = SCNVector3(startScale, startScale, startScale)
-                circleNode.opacity = 0.8
+            // Animate: fade in with stagger, then pulse.
+            let delay = Double(i) * 0.1
+            let fadeIn = SCNAction.fadeOpacity(to: 0.8, duration: 0.3)
+            let pulseOn = SCNAction.fadeOpacity(to: 1.0, duration: 0.15)
+            let pulseOff = SCNAction.fadeOpacity(to: 0.5, duration: 0.15)
+            let pulse = SCNAction.sequence([pulseOn, pulseOff])
+            let settle = SCNAction.fadeOpacity(to: 0.6, duration: 0.2)
 
-                // Stagger animation start per circle.
-                let delay = Double(row * cols + col) * 0.03
+            let sequence = SCNAction.sequence([
+                SCNAction.wait(duration: delay),
+                fadeIn,
+                SCNAction.repeat(pulse, count: 2),
+                settle
+            ])
 
-                // Animation: shrink → flash → settle.
-                let shrink = SCNAction.scale(to: 1.0, duration: 0.4)
-                shrink.timingMode = .easeOut
+            edgeNode.runAction(sequence)
+            node.addChildNode(edgeNode)
+        }
 
-                let flashOn = SCNAction.fadeOpacity(to: 1.0, duration: 0.1)
-                let flashOff = SCNAction.fadeOpacity(to: 0.4, duration: 0.1)
-                let flash = SCNAction.sequence([flashOn, flashOff, flashOn, flashOff])
+        // Corner markers — small squares at each corner.
+        let cornerSize: CGFloat = 0.008
+        let corners: [SCNVector3] = [
+            SCNVector3(-halfW, 0.001, -halfH),
+            SCNVector3(halfW, 0.001, -halfH),
+            SCNVector3(-halfW, 0.001, halfH),
+            SCNVector3(halfW, 0.001, halfH)
+        ]
 
-                let settle = SCNAction.fadeOpacity(to: 0.6, duration: 0.3)
+        for (i, pos) in corners.enumerated() {
+            let square = SCNPlane(
+                width: cornerSize, height: cornerSize
+            )
+            square.cornerRadius = cornerSize / 2
+            square.firstMaterial?.diffuse.contents = UIColor.green
+            square.firstMaterial?.isDoubleSided = true
+            square.firstMaterial?.emission.contents = UIColor.green
 
-                let sequence = SCNAction.sequence([
-                    SCNAction.wait(duration: delay),
-                    shrink,
-                    flash,
-                    settle
-                ])
+            let cornerNode = SCNNode(geometry: square)
+            cornerNode.eulerAngles.x = -.pi / 2
+            cornerNode.position = pos
+            cornerNode.scale = SCNVector3(3, 3, 3)
+            cornerNode.opacity = 0
 
-                circleNode.runAction(sequence)
-                node.addChildNode(circleNode)
-            }
+            // Corners: appear large, shrink to position, flash.
+            let delay = Double(i) * 0.08
+            let appear = SCNAction.fadeOpacity(to: 0.9, duration: 0.2)
+            let shrink = SCNAction.scale(to: 1.0, duration: 0.3)
+            shrink.timingMode = .easeOut
+            let group = SCNAction.group([appear, shrink])
+
+            let flashOn = SCNAction.fadeOpacity(to: 1.0, duration: 0.1)
+            let flashOff = SCNAction.fadeOpacity(to: 0.4, duration: 0.1)
+            let flash = SCNAction.sequence([flashOn, flashOff])
+
+            let sequence = SCNAction.sequence([
+                SCNAction.wait(duration: delay),
+                group,
+                SCNAction.repeat(flash, count: 2),
+                SCNAction.fadeOpacity(to: 0.7, duration: 0.2)
+            ])
+
+            cornerNode.runAction(sequence)
+            node.addChildNode(cornerNode)
         }
     }
 }
@@ -263,7 +341,7 @@ extension DetectionViewController: ARSCNViewDelegate {
         guard let imageAnchor = anchor as? ARImageAnchor,
               let frame = sceneView.session.currentFrame else { return }
         extractAndAccumulate(from: imageAnchor, frame: frame)
-        addFeatureCircles(to: node, for: imageAnchor)
+        addTrackingBorder(to: node, for: imageAnchor)
     }
 
     /// Called each frame while the tracked image is visible.
